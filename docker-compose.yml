@@ -1,0 +1,105 @@
+# Daily Logistics — stack independiente de control-inventarios.
+# Nombres de contenedor, volúmenes, red y puertos propios: levantarlo o bajarlo
+# no toca nada del otro proyecto.
+name: daily_logistics
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dl_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-daily_logistics}
+      POSTGRES_USER: ${POSTGRES_USER:-dl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+    volumes:
+      - dl_postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dl_user} -d ${POSTGRES_DB:-daily_logistics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: dl_redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - dl_redis_data:/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: daily_logistics-backend
+    container_name: dl_backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dl_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-daily_logistics}
+      REDIS_URL: redis://redis:6379/0
+      PROJECT_NAME: Daily Logistics
+      # Hora de Colombia: date.today() define la fecha de las OC, despachos y
+      # tableros «de hoy». En UTC, todo lo hecho después de las 7 p. m. quedaba
+      # con la fecha del día siguiente.
+      TZ: America/Bogota
+      ENVIRONMENT: development
+      DEBUG: "false"
+      CORS_ORIGINS: '["http://localhost:5180","http://127.0.0.1:5180"]'
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./backend:/app
+      - dl_uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    image: daily_logistics-frontend
+    container_name: dl_frontend
+    environment:
+      API_TARGET: http://backend:8000
+      HOST_IP: ${HOST_IP:-}
+    ports:
+      - "5180:5180"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dl_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@dailylogistics.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-DailyPg@2026}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5051:80"
+    volumes:
+      - dl_pgadmin_data:/var/lib/pgadmin
+      - ./deploy/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  dl_postgres_data:
+  dl_redis_data:
+  dl_uploads_data:
+  dl_pgadmin_data:

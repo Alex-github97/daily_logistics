@@ -1,0 +1,4 @@
+from app.infrastructure.repositories.base_repository import BaseRepository
+from app.infrastructure.repositories.usuario_repository import UsuarioRepository
+from app.infrastructure.repositories.estiba_repository import EstibaRepository
+from app.infrastructure.repositories.movimiento_repository import MovimientoRepository

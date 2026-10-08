@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F4F6FB;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Scrollbars finos y modernos ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(11, 17, 32, 0.18);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 17, 32, 0.34);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Selección y focus ───────────────────────────────────────────────────── */
+::selection { background: rgba(79, 70, 229, 0.20); color: #0B1120; }
+
+:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+* { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ── Animaciones reutilizables ───────────────────────────────────────────── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes progressSlide {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(30%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes orbitReverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Utilidades premium (opt-in por className) ──────────────────────────── */
+/* OJO: .glass y .glass-dark usan backdrop-filter, que obliga al compositor a
+   rasterizar y desenfocar todo lo que hay detrás en cada repintado. Se quitó del
+   tema global (menús, diálogos, header) justamente porque hacía que abrir
+   cualquier menú se sintiera trabado. Hoy no se usan en ninguna parte; si se
+   llegan a usar, que sea en áreas pequeñas y estáticas. */
+.glass {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.glass-dark {
+  background: rgba(10, 15, 28, 0.78) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #F8FAFC;
+}
+
+/* Degradado hero que hereda el color del elemento (funciona con el color
+   de acento de cualquier módulo). Fallback: color sólido si no hay color-mix. */
+.text-gradient {
+  background: linear-gradient(115deg, currentColor 25%, color-mix(in srgb, currentColor 45%, #ffffff) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not (color: color-mix(in srgb, red 50%, white)) {
+  .text-gradient {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+.hover-lift {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px -10px rgba(15, 23, 42, 0.18);
+}
+
+/* Utilidades de animación (aplicables vía className) */
+.anim-page-in   { animation: pageIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-fade-in   { animation: fadeIn 0.35s ease both; }
+.anim-slide-in  { animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Stagger para listas/grillas: retrasa la entrada de los primeros 12 hijos */
+.anim-stagger > * { animation: pageIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-stagger > *:nth-child(1)  { animation-delay: 0.02s; }
+.anim-stagger > *:nth-child(2)  { animation-delay: 0.06s; }
+.anim-stagger > *:nth-child(3)  { animation-delay: 0.10s; }
+.anim-stagger > *:nth-child(4)  { animation-delay: 0.14s; }
+.anim-stagger > *:nth-child(5)  { animation-delay: 0.18s; }
+.anim-stagger > *:nth-child(6)  { animation-delay: 0.22s; }
+.anim-stagger > *:nth-child(7)  { animation-delay: 0.26s; }
+.anim-stagger > *:nth-child(8)  { animation-delay: 0.30s; }
+.anim-stagger > *:nth-child(9)  { animation-delay: 0.34s; }
+.anim-stagger > *:nth-child(10) { animation-delay: 0.38s; }
+.anim-stagger > *:nth-child(11) { animation-delay: 0.42s; }
+.anim-stagger > *:nth-child(12) { animation-delay: 0.46s; }
+
+/* Respeto por usuarios con movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

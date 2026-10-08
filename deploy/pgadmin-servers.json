@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Daily Logistics",
+      "Group": "Daily Logistics",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "daily_logistics",
+      "Username": "dl_user",
+      "SSLMode": "prefer"
+    }
+  }
+}

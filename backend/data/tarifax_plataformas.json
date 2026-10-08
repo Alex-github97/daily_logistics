@@ -1,0 +1,1458 @@
+[
+  {
+    "id": 1,
+    "nombre": "Cota",
+    "pais": "Colombia",
+    "ciudad": "Cota",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 20702.0,
+    "valor_arriendo": 314302800.0,
+    "valor_m2_manual": 18719.0,
+    "capacidad_posiciones": 11381.0,
+    "cajas_movilizadas_mes": 0.0,
+    "kg_movilizados_mes": 0.0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 20702
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "Ver hoja 3",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 2,
+    "nombre": "Itagüí",
+    "pais": "Colombia",
+    "ciudad": "Itagüí",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 8200.0,
+    "valor_arriendo": 193393697.0,
+    "valor_m2_manual": 25693.0,
+    "capacidad_posiciones": 3112.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 8200
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 3,
+    "nombre": "Yumbo",
+    "pais": "Colombia",
+    "ciudad": "Yumbo",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 9600.0,
+    "valor_arriendo": 142322946.0,
+    "valor_m2_manual": 31730.0,
+    "capacidad_posiciones": 7646.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 9600
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 4,
+    "nombre": "Barranquilla",
+    "pais": "Colombia",
+    "ciudad": "Barranquilla",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 4200.0,
+    "valor_arriendo": 100086314.0,
+    "valor_m2_manual": 29230.0,
+    "capacidad_posiciones": 2761.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 4200
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 5,
+    "nombre": "Dosquebradas",
+    "pais": "Colombia",
+    "ciudad": "Dosquebradas",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 2230.0,
+    "valor_arriendo": 55018506.0,
+    "valor_m2_manual": 29012.0,
+    "capacidad_posiciones": 1156.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 2230
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 6,
+    "nombre": "Bucaramanga",
+    "pais": "Colombia",
+    "ciudad": "Bucaramanga",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 1205.0,
+    "valor_arriendo": 30058829.0,
+    "valor_m2_manual": 32000.0,
+    "capacidad_posiciones": 580.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 1205
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  },
+  {
+    "id": 7,
+    "nombre": "Ibagué",
+    "pais": "Colombia",
+    "ciudad": "Ibagué",
+    "direccion": "",
+    "posicion": "",
+    "m2_totales": 3181.0,
+    "valor_arriendo": 28672549.0,
+    "valor_m2_manual": 27798.0,
+    "capacidad_posiciones": 410.0,
+    "cajas_movilizadas_mes": 0,
+    "kg_movilizados_mes": 0,
+    "areas": [
+      {
+        "area": "Almacenamiento",
+        "m2": 3181
+      }
+    ],
+    "productividad": {
+      "actividades": [
+        {
+          "actividad": "Recepcion",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 390
+        },
+        {
+          "actividad": "Almacenamiento",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 12
+        },
+        {
+          "actividad": "Alistamiento",
+          "volumen_semanal": 0,
+          "unidad": "cajas",
+          "rendimiento_hh": 0
+        },
+        {
+          "actividad": "Despacho",
+          "volumen_semanal": 0,
+          "unidad": "estibas",
+          "rendimiento_hh": 0
+        }
+      ]
+    },
+    "parametros": {
+      "pallet_largo_m": 1.2,
+      "pallet_ancho_m": 1.0,
+      "margen_utilidad_pct": 20,
+      "ipc_pct": 5.35,
+      "smlv": 1750905,
+      "aux_transporte": 249095,
+      "hr_mensuales": 220,
+      "semanas_mes": 4.33
+    },
+    "nomina": {
+      "cargos": [
+        {
+          "cargo": "Auxiliares de bodega",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Asistente de calidad",
+          "cantidad": 0,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Montacarguista",
+          "cantidad": 4,
+          "salario": 2089296,
+          "dotacion": 143000,
+          "carga_prestacional": 877504
+        },
+        {
+          "cargo": "Asistente de inventarios",
+          "cantidad": 1,
+          "salario": 2451991,
+          "dotacion": 143000,
+          "carga_prestacional": 1029836
+        },
+        {
+          "cargo": "Aux de inventarios",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        },
+        {
+          "cargo": "Jefe de bodega",
+          "cantidad": 0.045,
+          "salario": 2338377,
+          "dotacion": 143000,
+          "carga_prestacional": 982118
+        },
+        {
+          "cargo": "Vigilante",
+          "cantidad": 0.045,
+          "salario": 2000000,
+          "dotacion": 143000,
+          "carga_prestacional": 840000
+        }
+      ]
+    },
+    "servicios_publicos": {
+      "items": [
+        {
+          "servicio": "Acueducto y alcantarillado",
+          "gasto_total": 2988080
+        },
+        {
+          "servicio": "Energia",
+          "gasto_total": 20476396
+        },
+        {
+          "servicio": "Gas",
+          "gasto_total": 0
+        },
+        {
+          "servicio": "Internet",
+          "gasto_total": 4703111
+        }
+      ]
+    },
+    "maquinaria": {
+      "incremento_pct": 0,
+      "items": [
+        {
+          "item": "Estanteria",
+          "cantidad": 0,
+          "valor": 0
+        },
+        {
+          "item": "Montacargas (incluye bateria y cargador)",
+          "cantidad": 0.23,
+          "valor": 5500000
+        },
+        {
+          "item": "Bateria montacargas (respaldo)",
+          "cantidad": 0,
+          "valor": 1000000
+        },
+        {
+          "item": "Estibadores Manuales",
+          "cantidad": 1,
+          "valor": 150000
+        },
+        {
+          "item": "Strech",
+          "cantidad": 0,
+          "valor": 34510
+        },
+        {
+          "item": "Estibas",
+          "cantidad": 3000,
+          "valor": 50
+        }
+      ]
+    },
+    "equipos_tecnologicos": {
+      "incremento_pct": 6,
+      "items": [
+        {
+          "item": "Computadores",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras regular",
+          "cantidad": 0.1,
+          "valor": 125000
+        },
+        {
+          "item": "Impresoras Zebra",
+          "cantidad": 0.1,
+          "valor": 75000
+        },
+        {
+          "item": "Scanner",
+          "cantidad": 0,
+          "valor": 125000
+        },
+        {
+          "item": "radiofrecuencias",
+          "cantidad": 0.1,
+          "valor": 250000
+        },
+        {
+          "item": "Baterias RF",
+          "cantidad": 0.1,
+          "valor": 100000
+        },
+        {
+          "item": "Telefonia",
+          "cantidad": 0,
+          "valor": 26000
+        }
+      ]
+    },
+    "notas": "",
+    "creado_en": "2026-08-04 13:45:09"
+  }
+]
