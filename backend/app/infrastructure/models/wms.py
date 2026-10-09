@@ -93,6 +93,11 @@ class WMSAlmacen(Base, TimestampMixin):
     direccion = Column(String(255), nullable=True)
     ciudad    = Column(String(100), nullable=True)
     pais      = Column(String(80), nullable=True)
+    # Punto en el mapa: origen de todo lo que despacha la bodega en el TMS.
+    # geo_precision: DIRECCION | CIUDAD (aproximado) | MANUAL | NO_ENCONTRADA.
+    lat           = Column(Float, nullable=True)
+    lng           = Column(Float, nullable=True)
+    geo_precision = Column(String(15), nullable=True)
     # DIRECTO: la recepción deja la mercancía en su ubicación final.
     # DIRIGIDO: la deja en la zona de recepción, en una estiba (LPN) por línea,
     # y crea una tarea de ubicación por estiba con la ubicación sugerida. Es lo
@@ -310,7 +315,7 @@ class WMSOrdenCompra(Base, TimestampMixin, SoftDeleteMixin):
 class WMSOrdenCompraDetalle(Base, TimestampMixin):
     __tablename__ = "wms_ordenes_compra_detalle"
     id                  = Column(Integer, primary_key=True, index=True)
-    orden_id            = Column(Integer, ForeignKey("wms_ordenes_compra.id"), nullable=False)
+    orden_id            = Column(Integer, ForeignKey("wms_ordenes_compra.id"), nullable=False, index=True)
     producto_id         = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     cantidad_solicitada = Column(Float, nullable=False)
     cantidad_recibida   = Column(Float, nullable=False, default=0)
@@ -354,7 +359,7 @@ class WMSRecepcion(Base, TimestampMixin, SoftDeleteMixin):
 class WMSRecepcionDetalle(Base, TimestampMixin):
     __tablename__ = "wms_recepciones_detalle"
     id                = Column(Integer, primary_key=True, index=True)
-    recepcion_id      = Column(Integer, ForeignKey("wms_recepciones.id"), nullable=False)
+    recepcion_id      = Column(Integer, ForeignKey("wms_recepciones.id"), nullable=False, index=True)
     producto_id       = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     lote_id           = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     cantidad_esperada = Column(Float, nullable=True)
@@ -496,6 +501,17 @@ class WMSOrdenSalida(Base, TimestampMixin, SoftDeleteMixin):
     prioridad      = Column(String(20), nullable=False, default="NORMAL")
     # ECOMMERCE/B2B/RETAIL/TRANSFERENCIA
     canal          = Column(String(30), nullable=True)
+    # Destino: obligatorio para consolidar. Solo se consolidan juntas las
+    # órdenes del mismo destino (la clave normalizada, p. ej. «BOGOTA»).
+    destino           = Column(String(80), nullable=True, index=True)
+    destino_ciudad    = Column(String(120), nullable=True)
+    destino_direccion = Column(String(300), nullable=True)
+    destino_contacto  = Column(String(200), nullable=True)
+    destino_telefono  = Column(String(40), nullable=True)
+    # La dirección de compra en el mapa (destino de la parada en el TMS).
+    destino_lat       = Column(Float, nullable=True)
+    destino_lng       = Column(Float, nullable=True)
+    destino_geo       = Column(String(15), nullable=True)   # DIRECCION | CIUDAD | MANUAL | NO_ENCONTRADA
 
     cliente   = relationship("WMSCliente", back_populates="ordenes_salida")
     almacen   = relationship("WMSAlmacen", back_populates="ordenes_salida")
@@ -508,7 +524,7 @@ class WMSOrdenSalida(Base, TimestampMixin, SoftDeleteMixin):
 class WMSOrdenSalidaDetalle(Base, TimestampMixin):
     __tablename__ = "wms_ordenes_salida_detalle"
     id                  = Column(Integer, primary_key=True, index=True)
-    orden_id            = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False)
+    orden_id            = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False, index=True)
     producto_id         = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     lote_id             = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     cantidad_solicitada = Column(Float, nullable=False)
@@ -526,7 +542,7 @@ class WMSOrdenSalidaDetalle(Base, TimestampMixin):
 class WMSPickingTarea(Base, TimestampMixin):
     __tablename__ = "wms_picking_tareas"
     id                   = Column(Integer, primary_key=True, index=True)
-    orden_id             = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False)
+    orden_id             = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False, index=True)
     ola_id               = Column(Integer, ForeignKey("wms_olas.id"), nullable=True, index=True)
     operario_id          = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     # SINGLE/BATCH/ZONE/CLUSTER/WAVE
@@ -546,7 +562,7 @@ class WMSPickingTarea(Base, TimestampMixin):
 class WMSPickingDetalle(Base, TimestampMixin):
     __tablename__ = "wms_picking_detalles"
     id                    = Column(Integer, primary_key=True, index=True)
-    tarea_id              = Column(Integer, ForeignKey("wms_picking_tareas.id"), nullable=False)
+    tarea_id              = Column(Integer, ForeignKey("wms_picking_tareas.id"), nullable=False, index=True)
     producto_id           = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     ubicacion_id          = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False)
     lote_id               = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
@@ -572,7 +588,7 @@ class WMSDespacho(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "wms_despachos"
     id                    = Column(Integer, primary_key=True, index=True)
     numero_despacho       = Column(String(60), nullable=False, unique=True, index=True)
-    orden_id              = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False)
+    orden_id              = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False, index=True)
     transportadora_id     = Column(Integer, ForeignKey("wms_transportadoras.id"), nullable=True)
     vehiculo_placa        = Column(String(20), nullable=True)
     conductor_nombre      = Column(String(150), nullable=True)
@@ -600,7 +616,7 @@ class WMSDespacho(Base, TimestampMixin, SoftDeleteMixin):
 class WMSDespachoDetalle(Base, TimestampMixin):
     __tablename__ = "wms_despachos_detalle"
     id               = Column(Integer, primary_key=True, index=True)
-    despacho_id      = Column(Integer, ForeignKey("wms_despachos.id"), nullable=False)
+    despacho_id      = Column(Integer, ForeignKey("wms_despachos.id"), nullable=False, index=True)
     producto_id      = Column(Integer, ForeignKey("wms_productos.id"), nullable=False)
     lote_id          = Column(Integer, ForeignKey("wms_lotes.id"), nullable=True)
     cantidad         = Column(Float, nullable=False)
@@ -801,6 +817,99 @@ class WMSTarea(Base, TimestampMixin):
     iniciada_en           = Column(DateTime(timezone=True), nullable=True)
     terminada_en          = Column(DateTime(timezone=True), nullable=True)
     notas                 = Column(Text, nullable=True)
+    # Reabastecimiento: de qué estiba sale (la tarea mueve solo una parte) y
+    # quién la aprobó. Estados extra: POR_APROBAR → PENDIENTE (o RECHAZADA).
+    contenedor_origen_id  = Column(Integer, ForeignKey("wms_contenedores.id"), nullable=True)
+    aprobada_por_id       = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    aprobada_en           = Column(DateTime(timezone=True), nullable=True)
+    # La jornada en que se hizo (productividad) y si el operario escaneó el origen.
+    jornada_id            = Column(Integer, ForeignKey("per_jornadas.id"), nullable=True)   # WFM · Personal
+    origen_confirmado     = Column(Boolean, nullable=True)
+
+
+# ─── Frentes de picking y reabastecimiento ───────────────────────────
+
+class WMSFrentePicking(Base, TimestampMixin):
+    """La ubicación de la que se alista (o se vende en la sala POS) un producto,
+    con su mínimo y máximo. Bajo el mínimo nace una tarea de reabastecimiento
+    desde la reserva. Puede haber frentes alternos (prioridad > 1) que se
+    habilitan o deshabilitan sin borrarlos."""
+    __tablename__ = "wms_frentes_picking"
+    __table_args__ = (UniqueConstraint("producto_id", "ubicacion_id", name="uq_frente_producto_ubicacion"),)
+    id           = Column(Integer, primary_key=True, index=True)
+    almacen_id   = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    producto_id  = Column(Integer, ForeignKey("wms_productos.id"), nullable=False, index=True)
+    ubicacion_id = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=False, index=True)
+    # En qué se expresan mínimo y máximo: UNIDAD o un nivel de empaque (CAJA, MASTER, ESTIBA).
+    unidad       = Column(String(10), nullable=False, default="UNIDAD")
+    minimo       = Column(Float, nullable=False, default=0)
+    maximo       = Column(Float, nullable=False, default=0)
+    prioridad    = Column(Integer, nullable=False, default=1)       # 1 = principal; 2, 3… = alternos
+    activo       = Column(Boolean, nullable=False, default=True)
+
+
+class WMSConfigTareas(Base, TimestampMixin):
+    """Reglas de tareas y reabastecimiento de un almacén."""
+    __tablename__ = "wms_config_tareas"
+    id                       = Column(Integer, primary_key=True, index=True)
+    almacen_id               = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, unique=True)
+    reabastecimiento_activo  = Column(Boolean, nullable=False, default=True)
+    requiere_aprobacion      = Column(Boolean, nullable=False, default=True)
+    picking_solo_frentes     = Column(Boolean, nullable=False, default=True)
+    # Si los frentes no alcanzan, ¿el picking puede tomar de la reserva?
+    picking_reserva_si_falta = Column(Boolean, nullable=False, default=False)
+    # La sala de ventas (zonas vendibles en POS) no se alista: se reabastece.
+    picking_excluir_pos      = Column(Boolean, nullable=False, default=True)
+    exigir_escaneo_origen    = Column(Boolean, nullable=False, default=True)
+    # Minutos: una tarea asignada sin empezar vuelve a la cola; una en curso alerta.
+    liberar_asignada_min     = Column(Integer, nullable=False, default=15)
+    alerta_en_curso_min      = Column(Integer, nullable=False, default=30)
+    # Desde qué nivel una ubicación de estibas requiere montacargas.
+    nivel_montacargas        = Column(Integer, nullable=False, default=2)
+
+
+# ─── Consolidación de salida ───────────────────────────────────────────────────
+
+class WMSConsolidado(Base, TimestampMixin):
+    """Una unidad de despacho armada en el staging de salida (estiba, jaula,
+    bolsa o caja) con las órdenes alistadas de UN mismo destino. Lleva etiqueta
+    (`codigo`) que se escanea al cargar el vehículo en el TMS.
+
+    ABIERTO → CERRADO → SOLICITADO (transporte pedido al TMS) → EN_CARGUE
+    (asignado a un vehículo) → DESPACHADO → ENTREGADO; o ANULADO."""
+    __tablename__ = "wms_consolidados"
+    id                = Column(Integer, primary_key=True, index=True)
+    codigo            = Column(String(30), nullable=False, unique=True, index=True)
+    almacen_id        = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    destino           = Column(String(80), nullable=False, index=True)
+    destino_ciudad    = Column(String(120), nullable=True)
+    estado            = Column(String(12), nullable=False, default="ABIERTO", index=True)
+    individual        = Column(Boolean, nullable=False, default=False)
+    # PAQUETEO_URBANO_PROPIO / PAQUETEO_URBANO_TERCERO / PAQUETEO_NACIONAL_TERCERO / FLOTA_PROPIA
+    modo_despacho     = Column(String(30), nullable=True, index=True)
+    transportadora_id = Column(Integer, ForeignKey("wms_transportadoras.id"), nullable=True)
+    guia              = Column(String(80), nullable=True)            # guía del tercero
+    ubicacion_id      = Column(Integer, ForeignKey("wms_ubicaciones.id"), nullable=True)
+    bultos            = Column(Integer, nullable=False, default=1)
+    peso_kg           = Column(Float, nullable=True)
+    volumen_m3        = Column(Float, nullable=True)
+    solicitud_id      = Column(Integer, ForeignKey("tms_solicitudes_transporte.id"), nullable=True, index=True)
+    cargue_id         = Column(Integer, ForeignKey("tms_cargues.id"), nullable=True, index=True)
+    viaje_id          = Column(Integer, ForeignKey("tms_viaje.id"), nullable=True)
+    cerrado_en        = Column(DateTime(timezone=True), nullable=True)
+    creado_por_id     = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    notas             = Column(Text, nullable=True)
+
+
+class WMSConsolidadoOrden(Base, TimestampMixin):
+    __tablename__ = "wms_consolidado_ordenes"
+    __table_args__ = (UniqueConstraint("consolidado_id", "orden_id", name="uq_consolidado_orden"),)
+    id             = Column(Integer, primary_key=True, index=True)
+    consolidado_id = Column(Integer, ForeignKey("wms_consolidados.id", ondelete="CASCADE"), nullable=False, index=True)
+    orden_id       = Column(Integer, ForeignKey("wms_ordenes_salida.id"), nullable=False, index=True)
+    peso_kg        = Column(Float, nullable=True)
+    volumen_m3     = Column(Float, nullable=True)
+    despacho_id    = Column(Integer, ForeignKey("wms_despachos.id"), nullable=True)
 
 
 # ─── Cubicaje ──────────────────────────────────────────────────────────────────
@@ -1057,6 +1166,9 @@ class WMSLayout(Base, TimestampMixin):
     plano_y_m      = Column(Float, nullable=False, default=0)
     # Tokens: {almacen} {zona} {pasillo} {estanteria} {posicion} {nivel} (admite formato: {nivel:02d})
     patron_codigo  = Column(String(80), nullable=False, default="{pasillo}-{estanteria}-{posicion}-{nivel}")
+    # Contorno real del edificio: [{"x","y","s"}] en metros (s = flecha del arco
+    # hacia el siguiente punto; 0 = tramo recto). Vacío: el piso es el rectángulo.
+    contorno       = Column(JSON, nullable=True)
 
 
 class WMSLayoutElemento(Base, TimestampMixin):
@@ -1067,7 +1179,7 @@ class WMSLayoutElemento(Base, TimestampMixin):
     __tablename__ = "wms_layout_elementos"
     id            = Column(Integer, primary_key=True, index=True)
     almacen_id    = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
-    # SELECTIVO / GONDOLA / CANTILEVER / PISO / ZONA / MURO / COLUMNA
+    # SELECTIVO / GONDOLA / CANTILEVER / PISO / ZONA / MURO / COLUMNA / POLIMURO / POLIZONA
     tipo          = Column(String(20), nullable=False)
     nombre        = Column(String(60), nullable=True)
     pasillo       = Column(String(20), nullable=True)
@@ -1089,6 +1201,10 @@ class WMSLayoutElemento(Base, TimestampMixin):
     alto_nivel_cm = Column(Float, nullable=False, default=150)
     capacidad_kg  = Column(Float, nullable=True)                # por posición
     largo_m       = Column(Float, nullable=True)                # áreas, muros y columnas
+    # Muros en polilínea (POLIMURO) y áreas de forma libre (POLIZONA):
+    # {"puntos": [{"x","y","s"}] relativos al centro (x_m, y_m), "cerrado": bool}.
+    # El espesor del muro va en fondo_cm.
+    forma         = Column(JSON, nullable=True)
     ancho_m       = Column(Float, nullable=True)
     orden         = Column(Integer, nullable=False, default=0)
 

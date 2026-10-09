@@ -298,12 +298,11 @@ export default function WMSPedidosEnLinea() {
         <>
           <Stack direction="row" alignItems="center" gap={1.5} mb={1.5}>
             <Typography sx={{ fontSize: 13, color: PALETA.grafito, flex: 1 }}>
-              Pedidos alistados que esperan en el staging de salida. Al despachar se crea el viaje en el TMS con la dirección del
-              comprador y la plataforma recibe el número de guía.
+              Pedidos alistados que esperan en el staging de salida. Se consolidan por destino, se les asigna el modo de despacho
+              y se solicita el transporte al TMS, donde se cargan en los vehículos; la plataforma recibe la guía al confirmar el cargue.
             </Typography>
-            <Button variant="contained" startIcon={despachar.isPending ? <CircularProgress size={16} color="inherit" /> : <LocalShipping />}
-              disabled={!marcados.size || despachar.isPending} onClick={() => despachar.mutate()} sx={{ textTransform: 'none', fontWeight: 700 }}>
-              Despachar con TMS{marcados.size ? ` (${marcados.size})` : ''}
+            <Button variant="contained" startIcon={<LocalShipping />} onClick={() => navigate('/wms/consolidacion')} sx={{ textTransform: 'none', fontWeight: 700 }}>
+              Consolidar y despachar
             </Button>
           </Stack>
           {marcados.size > 0 && (

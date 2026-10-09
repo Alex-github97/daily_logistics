@@ -37,6 +37,11 @@ log = logging.getLogger("uvicorn.error")
 ESTADOS_ABIERTOS = ("RECIBIDO", "CON_NOVEDAD", "COMPROMETIDO", "EN_STAGING")
 
 
+def _clave_destino(ciudad):
+    from app.api.v1.endpoints.wms_consolidacion import clave_destino
+    return clave_destino(ciudad)
+
+
 async def registrar(db: AsyncSession, conector_id: Optional[int], tipo: str, ok: bool, mensaje: str) -> None:
     db.add(MKPBitacora(conector_id=conector_id, tipo=tipo, ok=ok, mensaje=mensaje[:2000]))
 
@@ -144,7 +149,10 @@ async def comprometer(db: AsyncSession, conector: MKPConector, pedido: MKPPedido
         cliente_id=await cliente_del_conector(db, conector), almacen_id=conector.almacen_id,
         fecha_emision=datetime.now(timezone.utc).date(), estado="PENDIENTE", prioridad="ALTA",
         canal=conector.tipo[:30],
-        depositante_id=await op.resolver_depositante(db, None, list(por_producto)))
+        depositante_id=await op.resolver_depositante(db, None, list(por_producto)),
+        # El destino (obligatorio para consolidar el despacho) es la ciudad del comprador.
+        destino=_clave_destino(pedido.ciudad), destino_ciudad=pedido.ciudad, destino_direccion=pedido.direccion,
+        destino_contacto=pedido.comprador, destino_telefono=pedido.telefono)
     db.add(orden)
     await db.flush()
     for pid, cant in por_producto.items():

@@ -16,7 +16,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import delete as sa_delete, func, select
+from sqlalchemy import delete as sa_delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -97,14 +97,31 @@ def _valor(x) -> str:
     return getattr(x, "value", x)
 
 
-async def _respuesta(db: AsyncSession, cond: HCMConductor) -> ConductorTMSOut:
-    colab = await db.get(HCMColaborador, cond.colaborador_id)
-    tipos = (await db.execute(select(HCMConductorVehiculoTipo.tipo_vehiculo).where(
-        HCMConductorVehiculoTipo.conductor_id == cond.id))).scalars().all()
-    escalas = (await db.execute(select(HCMConductorCobertura.escala).where(
-        HCMConductorCobertura.conductor_id == cond.id))).scalars().all()
-    docs = (await db.execute(select(func.count()).select_from(HCMConductorDocumento).where(
-        HCMConductorDocumento.conductor_id == cond.id))).scalar() or 0
+async def _precarga(db: AsyncSession, ids: List[int], colab_ids: List[int]) -> dict:
+    """Lo que la lista necesita de todos los conductores, en cuatro consultas en
+    total y no cuatro por conductor (con 1.000 conductores la lista tardaba 18 s)."""
+    ids, colab_ids = ids or [0], colab_ids or [0]
+    pre = {"colab": {c.id: c for c in (await db.execute(select(HCMColaborador).where(HCMColaborador.id.in_(colab_ids)))).scalars()},
+           "tipos": {}, "escalas": {}, "docs": {}}
+    for cid, t in (await db.execute(select(HCMConductorVehiculoTipo.conductor_id, HCMConductorVehiculoTipo.tipo_vehiculo)
+                                    .where(HCMConductorVehiculoTipo.conductor_id.in_(ids)))).all():
+        pre["tipos"].setdefault(cid, []).append(t)
+    for cid, e in (await db.execute(select(HCMConductorCobertura.conductor_id, HCMConductorCobertura.escala)
+                                    .where(HCMConductorCobertura.conductor_id.in_(ids)))).all():
+        pre["escalas"].setdefault(cid, []).append(e)
+    pre["docs"] = dict((await db.execute(select(HCMConductorDocumento.conductor_id, func.count())
+                                         .where(HCMConductorDocumento.conductor_id.in_(ids))
+                                         .group_by(HCMConductorDocumento.conductor_id))).all())
+    return pre
+
+
+async def _respuesta(db: AsyncSession, cond: HCMConductor, pre: Optional[dict] = None) -> ConductorTMSOut:
+    if pre is None:
+        pre = await _precarga(db, [cond.id], [cond.colaborador_id])
+    colab = pre["colab"].get(cond.colaborador_id)
+    tipos = pre["tipos"].get(cond.id, [])
+    escalas = pre["escalas"].get(cond.id, [])
+    docs = pre["docs"].get(cond.id, 0) or 0
     return ConductorTMSOut(
         id=cond.id,
         colaborador_id=cond.colaborador_id,
@@ -145,6 +162,9 @@ async def _empresa_nomina(db: AsyncSession, ciudad: Optional[str]) -> HCMEmpresa
 
 
 async def _codigo_nuevo(db: AsyncSession) -> str:
+    # Candado hasta el fin de la transacción: dos conductores creados a la vez
+    # recibían el mismo código de empleado y el segundo se rechazaba.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('codigo_empleado'))"))
     codigos = (await db.execute(select(HCMColaborador.codigo_empleado).where(
         HCMColaborador.codigo_empleado.like(f"{_PREFIJO_CODIGO}%")))).scalars().all()
     mayor = max((int(c[len(_PREFIJO_CODIGO):]) for c in codigos
@@ -178,7 +198,9 @@ async def listar(
     q = select(HCMConductor).order_by(HCMConductor.id.desc())
     if activo is not None:
         q = q.where(HCMConductor.activo_conduccion == activo)
-    return [await _respuesta(db, c) for c in (await db.execute(q)).scalars().all()]
+    conds = (await db.execute(q)).scalars().all()
+    pre = await _precarga(db, [c.id for c in conds], [c.colaborador_id for c in conds])
+    return [await _respuesta(db, c, pre) for c in conds]
 
 
 @router.post("", response_model=ConductorTMSOut, status_code=201)

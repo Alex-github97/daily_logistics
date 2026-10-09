@@ -385,8 +385,10 @@ class VentaIn(BaseModel):
     cliente: ClienteIn = ClienteIn()
 
 
-async def _venta_dict(db, v: POSVenta, detalle=True) -> dict:
-    nombres = await _nombres(db)
+async def _venta_dict(db, v: POSVenta, detalle=True, nombres: Optional[dict] = None) -> dict:
+    # En la lista, los nombres se cargan una vez para todas las ventas (antes se
+    # leían todos los usuarios por cada venta: 500 veces por página).
+    nombres = nombres if nombres is not None else await _nombres(db)
     caja = await db.get(POSCaja, v.caja_id)
     out = {"id": v.id, "numero": v.numero, "fecha": v.fecha.isoformat(), "caja_id": v.caja_id,
            "caja_nombre": caja.nombre if caja else None, "cajero": nombres.get(v.cajero_id),
@@ -437,7 +439,8 @@ async def listar_ventas(desde: Optional[date] = None, hasta: Optional[date] = No
     if q:
         consulta = consulta.where(or_(POSVenta.numero.ilike(f"%{q}%"), POSVenta.cliente_nombre.ilike(f"%{q}%"),
                                       POSVenta.cliente_documento.ilike(f"%{q}%")))
-    return [await _venta_dict(db, v, detalle=False) for v in (await db.execute(consulta)).scalars()]
+    nombres = await _nombres(db)
+    return [await _venta_dict(db, v, detalle=False, nombres=nombres) for v in (await db.execute(consulta)).scalars()]
 
 
 @router.get("/ventas/{vid}")

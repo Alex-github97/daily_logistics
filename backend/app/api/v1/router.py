@@ -16,7 +16,7 @@ from app.api.v1.endpoints import (
     gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario,
     # WMS
     wms, wms_codigos, wms_estados_oc, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias,
-    wms_maquila, wms_mapa, wms_layout, wms_3pl, wms_traslados, wms_portal, canales, capacidad_carga, wms_documentos,
+    wms_maquila, wms_mapa, wms_layout, wms_operacion_tareas, personal, wms_consolidacion, tms_cargue, wms_3pl, wms_traslados, wms_portal, canales, capacidad_carga, wms_documentos,
     # TMS
     tms, tms_conductores, fletes,
     # POS
@@ -72,6 +72,10 @@ api_router.include_router(wms_sugerencias.router)
 api_router.include_router(wms_maquila.router)
 api_router.include_router(wms_mapa.router)
 api_router.include_router(wms_layout.router)
+api_router.include_router(wms_operacion_tareas.router)
+api_router.include_router(personal.router)
+api_router.include_router(wms_consolidacion.router)
+api_router.include_router(tms_cargue.router)
 api_router.include_router(wms_3pl.router)
 api_router.include_router(wms_traslados.router)
 api_router.include_router(wms_portal.router)

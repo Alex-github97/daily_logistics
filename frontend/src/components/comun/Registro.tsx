@@ -18,6 +18,7 @@ import { Add, Edit, DeleteForever } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { CatalogoAuto } from '@/components/catalogo/CatalogoAuto'
+import { Paginacion, usePaginacion } from '@/components/comun/HerramientasTabla'
 
 export type TipoCampo = 'texto' | 'area' | 'numero' | 'fecha' | 'seleccion' | 'interruptor'
   /** Valor del catálogo maestro (se guarda el nombre). */
@@ -260,8 +261,10 @@ export interface Columna<T> {
 }
 
 /** Tabla de registros con editar y retirar. `extra` agrega botones por fila. */
-export function TablaRegistros<T extends { id: number }>({ columnas, filas, cargando, vacio, etiqueta, onEditar, onRetirar, extra, onFila }: {
+export function TablaRegistros<T extends { id: number }>({ columnas, filas, cargando, vacio, etiqueta, onEditar, onRetirar, extra, onFila, paginar }: {
   columnas: Columna<T>[]; filas: T[]; cargando?: boolean; vacio: string
+  /** Filas por página (p. ej. 100). Sin esto, la tabla muestra todo como antes. */
+  paginar?: number
   /** Nombre corto del registro para los botones accesibles y la confirmación. */
   etiqueta: (r: T) => string
   onEditar?: (r: T) => void; onRetirar?: (r: T) => void
@@ -269,6 +272,8 @@ export function TablaRegistros<T extends { id: number }>({ columnas, filas, carg
   onFila?: (r: T) => void
 }) {
   const acciones = !!(onEditar || onRetirar || extra)
+  const pag = usePaginacion(filas, paginar || filas.length || 1)
+  const visibles = paginar ? pag.filasPagina : filas
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
       {cargando && <LinearProgress />}
@@ -281,7 +286,7 @@ export function TablaRegistros<T extends { id: number }>({ columnas, filas, carg
           {!cargando && filas.length === 0 && (
             <TableRow><TableCell colSpan={columnas.length + (acciones ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>{vacio}</TableCell></TableRow>
           )}
-          {filas.map(r => (
+          {visibles.map(r => (
             <TableRow key={r.id} hover onClick={onFila ? () => onFila(r) : undefined} sx={{ cursor: onFila ? 'pointer' : undefined, '& td': { fontSize: 12 } }}>
               {columnas.map(c => <TableCell key={c.titulo} align={c.alinear}>{c.valor(r)}</TableCell>)}
               {acciones && (
@@ -296,6 +301,9 @@ export function TablaRegistros<T extends { id: number }>({ columnas, filas, carg
           ))}
         </TableBody>
       </Table>
+      {paginar && filas.length > 0 && (
+        <Paginacion total={filas.length} pagina={pag.pagina} porPagina={pag.porPagina} onPagina={pag.setPagina} onPorPagina={pag.setPorPagina} />
+      )}
     </Paper>
   )
 }

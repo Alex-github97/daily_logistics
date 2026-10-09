@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { apiClient as api } from '@/api/client'
+import { area as areaPol, cajaDe, muestrear, type Pt, type XY } from './geometria'
 
 const PALETA = ['#0EA5E9', '#8B5CF6', '#10B981', '#EC4899', '#F59E0B', '#3B82F6', '#F97316', '#14B8A6', '#A855F7', '#EF4444']
 const SEMAFORO: Record<string, string> = {
@@ -34,14 +35,15 @@ interface Rack { id: string; elemento_id: number | null; foto_id: number | null;
   nombre: string; niveles: number; posiciones: number; frente_m: number; fondo_m: number; alto_nivel_m: number;
   largo_m: number; alto_m: number; ocupadas: number; celdas_total: number; ocupacion_pct: number; unidades: number;
   x: number; z: number; rotacion: number; celdas: Celda[] }
-interface Area { id: string; tipo: 'ZONA' | 'MURO' | 'COLUMNA'; nombre: string | null; categoria: string | null; color: string | null
-  x: number; z: number; largo_m: number; ancho_m: number; rotacion: number; ocupacion: { ocupacion_pct: number | null; unidades: number } | null }
-interface Escena { piso: { ancho_m: number; largo_m: number; plano_id: number | null; plano_rect?: { x: number; y: number; w: number; h: number } | null } | null
+interface Area { id: string; tipo: 'ZONA' | 'MURO' | 'COLUMNA' | 'POLIMURO' | 'POLIZONA'; nombre: string | null; categoria: string | null; color: string | null
+  x: number; z: number; largo_m: number; ancho_m: number; rotacion: number; ocupacion: { ocupacion_pct: number | null; unidades: number } | null
+  forma?: { puntos: Pt[]; cerrado: boolean } | null; espesor_m?: number }
+interface Escena { piso: { ancho_m: number; largo_m: number; plano_id: number | null; plano_rect?: { x: number; y: number; w: number; h: number } | null; contorno?: Pt[] | null } | null
   racks: Rack[]; areas?: Area[]; origen?: string
   resumen: { estanterias: number; posiciones: number; ocupadas: number; unidades: number } }
 const COLOR_AREA: Record<string, string> = {
   RECEPCION: '#F59E0B', DESPACHO: '#10B981', STAGING: '#06B6D4', CUARENTENA: '#EF4444', SALA_VENTAS: '#8B5CF6',
-  MUELLE: '#64748B', PASILLO: '#EAB308', OFICINAS: '#94A3B8', SERVICIOS: '#A8A29E', OTRA: '#3B82F6',
+  MUELLE: '#64748B', PASILLO: '#EAB308', OFICINAS: '#94A3B8', SERVICIOS: '#A8A29E', OTRA: '#3B82F6', NO_TRANSITABLE: '#64748B',
 }
 
 /** Rótulo plano para pintar sobre el piso (áreas). */
@@ -72,6 +74,28 @@ function etiqueta(texto: string, pct: number, color: string): THREE.Sprite {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }))
   s.scale.set(3.2, 1.0, 1); s.renderOrder = 10
   return s
+}
+
+/** Forma plana (en el plano del piso) a partir de puntos (x, z) en metros. */
+function formaPlana(pts: XY[], uv?: (x: number, z: number) => [number, number]): THREE.ShapeGeometry {
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z))))
+  geo.rotateX(-Math.PI / 2)                        // (x, -z) → (x, 0, z)
+  if (uv) {
+    const pos = geo.attributes.position, uvs = geo.attributes.uv
+    for (let i = 0; i < pos.count; i++) { const [u, v] = uv(pos.getX(i), pos.getZ(i)); uvs.setXY(i, u, v) }
+    uvs.needsUpdate = true
+  }
+  return geo
+}
+/** Muro recto entre dos puntos (x, z). */
+function tramoMuro(a: XY, b: XY, espesor: number, alto: number, mat: THREE.Material): THREE.Mesh | null {
+  const largo = Math.hypot(b[0] - a[0], b[1] - a[1])
+  if (largo < 1e-3) return null
+  const m = new THREE.Mesh(new THREE.BoxGeometry(largo + espesor * 0.98, alto, espesor), mat)
+  m.position.set((a[0] + b[0]) / 2, alto / 2, (a[1] + b[1]) / 2)
+  m.rotation.y = -Math.atan2(b[1] - a[1], b[0] - a[0])
+  m.castShadow = true; m.receiveShadow = true
+  return m
 }
 
 async function blobUrl(ruta: string) {
@@ -121,10 +145,28 @@ export default function Bodega3D({ almacen, productoId, onAbrir, onEditar }: {
     Object.assign(sol.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, far: 150 })
     scene.add(sol)
 
-    // ── Piso: cuadrícula de 1 m y, si hay plano, el plano en su rectángulo real ──
-    const pisoGeo = new THREE.PlaneGeometry(ancho, largo)
-    const pisoMat = new THREE.MeshStandardMaterial({ color: '#F8FAFC', roughness: 0.95, metalness: 0 })
-    const piso = new THREE.Mesh(pisoGeo, pisoMat); piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; scene.add(piso)
+    // ── Piso: cuadrícula de 1 m y, si hay plano, el plano en su rectángulo real.
+    //    Con contorno, el piso toma la forma real del edificio y se levantan sus muros. ──
+    const contorno = (d.piso?.contorno?.length ?? 0) >= 3 ? muestrear(d.piso!.contorno!, true) : null
+    const pisoMat = new THREE.MeshStandardMaterial({ color: '#F8FAFC', roughness: 0.95, metalness: 0, side: THREE.DoubleSide })
+    let piso: THREE.Mesh
+    if (contorno) {
+      const geo = formaPlana(contorno.map(([x, y]) => [x - ancho / 2, y - largo / 2] as XY),
+        (x, z) => [(x + ancho / 2) / ancho, 1 - (z + largo / 2) / largo])
+      piso = new THREE.Mesh(geo, pisoMat)
+      // terreno exterior, tenue
+      const fuera = new THREE.Mesh(new THREE.PlaneGeometry(ancho + 20, largo + 20), new THREE.MeshStandardMaterial({ color: '#E2E8F0', roughness: 1 }))
+      fuera.rotation.x = -Math.PI / 2; fuera.position.y = -0.02; fuera.receiveShadow = true; scene.add(fuera)
+      const matPerimetro = new THREE.MeshStandardMaterial({ color: '#CBD5E1', roughness: 0.85, transparent: true, opacity: 0.55 })
+      contorno.forEach((q, i) => {
+        const b = contorno[(i + 1) % contorno.length]
+        const m = tramoMuro([q[0] - ancho / 2, q[1] - largo / 2], [b[0] - ancho / 2, b[1] - largo / 2], 0.3, 3, matPerimetro)
+        if (m) { m.castShadow = false; scene.add(m) }
+      })
+    } else {
+      piso = new THREE.Mesh(new THREE.PlaneGeometry(ancho, largo), pisoMat); piso.rotation.x = -Math.PI / 2
+    }
+    piso.receiveShadow = true; scene.add(piso)
     const urls: string[] = []
     const pintarPiso = (img?: HTMLImageElement, svg?: HTMLImageElement) => {
       const c = document.createElement('canvas'); c.width = 4096; c.height = Math.round(4096 * largo / ancho)
@@ -165,7 +207,26 @@ export default function Bodega3D({ almacen, productoId, onAbrir, onEditar }: {
       grupo.position.set(a.x - ancho / 2, 0, a.z - largo / 2)
       grupo.rotation.y = -(a.rotacion * Math.PI) / 180
       scene.add(grupo)
-      if (a.tipo === 'ZONA') {
+      if (a.tipo === 'POLIZONA' && a.forma?.puntos.length) {
+        const veto = a.categoria === 'NO_TRANSITABLE'
+        const color = a.color ?? COLOR_AREA[a.categoria ?? 'OTRA'] ?? COLOR_AREA.OTRA
+        const lin = muestrear(a.forma.puntos, true)
+        const placa = new THREE.Mesh(formaPlana(lin), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: veto ? 0.3 : 0.16, depthWrite: false, side: THREE.DoubleSide }))
+        placa.position.y = 0.015; grupo.add(placa)
+        const borde = new THREE.Line(new THREE.BufferGeometry().setFromPoints([...lin, lin[0]].map(([x, z]) => new THREE.Vector3(x, 0.03, z))),
+          veto ? new THREE.LineBasicMaterial({ color }) : new THREE.LineDashedMaterial({ color, dashSize: 0.6, gapSize: 0.35 }))
+        borde.computeLineDistances(); grupo.add(borde)
+        const b = cajaDe(lin), pct = a.ocupacion?.ocupacion_pct
+        if (areaPol(lin) > 2) {
+          const rot = rotuloPiso(`${a.nombre ?? ''}${pct != null ? ` · ${Math.round(pct)}%` : ''}`, color, Math.min((b.x1 - b.x0) * 0.7, (b.y1 - b.y0) * 2.4))
+          rot.position.set((b.x0 + b.x1) / 2, 0.04, (b.y0 + b.y1) / 2); grupo.add(rot)
+        }
+      } else if (a.tipo === 'POLIMURO' && a.forma?.puntos.length) {
+        const mat = new THREE.MeshStandardMaterial({ color: '#CBD5E1', roughness: 0.8, transparent: true, opacity: 0.7 })
+        const lin = muestrear(a.forma.puntos, a.forma.cerrado)
+        const tramos = a.forma.cerrado ? lin.length : lin.length - 1
+        for (let i = 0; i < tramos; i++) { const m = tramoMuro(lin[i], lin[(i + 1) % lin.length], a.espesor_m ?? 0.2, 2.4, mat); if (m) grupo.add(m) }
+      } else if (a.tipo === 'ZONA') {
         const color = a.color ?? COLOR_AREA[a.categoria ?? 'OTRA'] ?? COLOR_AREA.OTRA
         const placa = new THREE.Mesh(new THREE.PlaneGeometry(a.largo_m, a.ancho_m),
           new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, depthWrite: false }))

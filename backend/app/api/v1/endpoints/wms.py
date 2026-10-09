@@ -533,8 +533,31 @@ async def crear_almacen(
     _=Depends(get_current_user),
 ):
     obj = WMSAlmacen(**data.model_dump())
+    if obj.lat is not None and obj.lng is not None:
+        obj.geo_precision = "MANUAL"
+    else:
+        await _ubicar_almacen(obj)
     db.add(obj); await db.commit(); await db.refresh(obj)
     return obj
+
+
+async def _ubicar_almacen(obj: WMSAlmacen) -> None:
+    """Ubica la bodega en el mapa por su dirección; sin conexión lo hace luego el ciclo de fondo."""
+    from app.core import geo
+    try:
+        await geo.ubicar_almacen(obj)
+    except Exception:  # noqa: BLE001 — la bodega se guarda igual
+        obj.lat = obj.lng = obj.geo_precision = None
+
+
+@router.get("/geo/buscar")
+async def buscar_direccion(q: str = Query(..., min_length=3), pais: Optional[str] = "Colombia", _=Depends(get_current_user)):
+    """Candidatos de una dirección o lugar en el mapa (OpenStreetMap)."""
+    from app.core import geo
+    try:
+        return await geo.buscar(q, pais)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(503, "El servicio de mapas no responde. Intente de nuevo o fije el punto a mano.")
 
 
 @router.put("/almacenes/{almacen_id}", response_model=WMSAlmacenResponse)
@@ -547,8 +570,16 @@ async def actualizar_almacen(
     obj = await db.get(WMSAlmacen, almacen_id)
     if not obj:
         raise HTTPException(404, "Almacén no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
+    antes = (obj.direccion, obj.ciudad, obj.pais)
+    cambios = data.model_dump(exclude_none=True)
+    reubicar = cambios.pop("reubicar", False)
+    for k, v in cambios.items():
         setattr(obj, k, v)
+    if data.lat is not None and data.lng is not None:
+        obj.geo_precision = "MANUAL"
+    elif reubicar or (antes != (obj.direccion, obj.ciudad, obj.pais) and obj.geo_precision != "MANUAL"):
+        obj.lat = obj.lng = obj.geo_precision = None
+        await _ubicar_almacen(obj)
     await db.commit(); await db.refresh(obj)
     return obj
 
@@ -989,6 +1020,9 @@ async def listar_ordenes_compra(
     estado: Optional[str] = None,
     proveedor_id: Optional[int] = None,
     almacen_id: Optional[int] = None,
+    recibibles: bool = Query(False, description="Solo las que aún admiten recepción (según los estados configurados)"),
+    q_texto: Optional[str] = Query(None, alias="q", description="Número de OC o proveedor"),
+    limite: Optional[int] = Query(None, ge=1, le=10000, description="Las más recientes; sin límite = todas"),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -1002,12 +1036,24 @@ async def listar_ordenes_compra(
         .where(WMSOrdenCompra.deleted_at.is_(None))
     )
     if estado:
-        q = q.where(WMSOrdenCompra.estado == estado)
+        q = q.where(WMSOrdenCompra.estado.in_(estado.split(",")))
+    if recibibles:
+        from app.core.wms_estados_oc import ROLES_SIN_RECEPCION
+        from app.infrastructure.models.wms import WMSEstadoOC
+        q = q.where(WMSOrdenCompra.estado.notin_(select(WMSEstadoOC.codigo).where(
+            WMSEstadoOC.rol.in_(ROLES_SIN_RECEPCION))))
+    if q_texto and q_texto.strip():
+        t = f"%{q_texto.strip()}%"
+        q = q.where(or_(WMSOrdenCompra.numero_oc.ilike(t), WMSOrdenCompra.proveedor_id.in_(
+            select(WMSProveedor.id).where(WMSProveedor.nombre.ilike(t)))))
     if proveedor_id:
         q = q.where(WMSOrdenCompra.proveedor_id == proveedor_id)
     if almacen_id:
         q = q.where(WMSOrdenCompra.almacen_id == almacen_id)
-    r = await db.execute(q.order_by(WMSOrdenCompra.fecha_emision.desc()))
+    q = q.order_by(WMSOrdenCompra.fecha_emision.desc(), WMSOrdenCompra.id.desc())
+    if limite:
+        q = q.limit(limite)
+    r = await db.execute(q)
     ocs = r.scalars().all()
     # Si todavía se puede corregir o eliminar (estado inicial, sin recepciones
     # ni cambios de estado): la pantalla muestra los botones según esto.
@@ -1086,6 +1132,8 @@ async def actualizar_orden_compra(
 async def listar_recepciones(
     estado: Optional[str] = None,
     almacen_id: Optional[int] = None,
+    q_texto: Optional[str] = Query(None, alias="q", description="Número de recepción u OC"),
+    limite: Optional[int] = Query(None, ge=1, le=10000, description="Las más recientes; sin límite = todas"),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
@@ -1103,7 +1151,14 @@ async def listar_recepciones(
         q = q.where(WMSRecepcion.estado == estado)
     if almacen_id:
         q = q.where(WMSRecepcion.almacen_id == almacen_id)
-    r = await db.execute(q.order_by(WMSRecepcion.fecha_recepcion.desc()))
+    if q_texto and q_texto.strip():
+        t = f"%{q_texto.strip()}%"
+        q = q.where(or_(WMSRecepcion.numero_recepcion.ilike(t), WMSRecepcion.orden_compra_id.in_(
+            select(WMSOrdenCompra.id).where(WMSOrdenCompra.numero_oc.ilike(t)))))
+    q = q.order_by(WMSRecepcion.fecha_recepcion.desc(), WMSRecepcion.id.desc())
+    if limite:
+        q = q.limit(limite)
+    r = await db.execute(q)
     return r.scalars().all()
 
 
@@ -1342,6 +1397,54 @@ async def completar_recepcion(
 
 # ─── INVENTARIO ────────────────────────────────────────────────────────────────
 
+def _consulta_inventario(almacen_id=None, producto_id=None, ubicacion_id=None, lote_id=None, zona=None,
+                         producto=None, depositante_id=None, incluir_vacias=False):
+    """Filtros del inventario, compartidos por la lista completa y la paginada."""
+    q = select(WMSInventarioUbicacion)
+    if not incluir_vacias:
+        # Las posiciones que se vaciaron conservan su fila (llave única) pero no
+        # tienen nada que mostrar: con volumen eran ~30 % de la respuesta.
+        q = q.where((WMSInventarioUbicacion.cantidad_disponible + WMSInventarioUbicacion.cantidad_reservada
+                     + WMSInventarioUbicacion.cantidad_bloqueada) != 0)
+    if producto_id:
+        q = q.where(WMSInventarioUbicacion.producto_id == producto_id)
+    if ubicacion_id:
+        q = q.where(WMSInventarioUbicacion.ubicacion_id == ubicacion_id)
+    if lote_id:
+        q = q.where(WMSInventarioUbicacion.lote_id == lote_id)
+    if almacen_id or (zona and zona.strip()):
+        q = q.join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)             .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
+        if almacen_id:
+            q = q.where(WMSZona.almacen_id == almacen_id)
+        if zona and zona.strip():
+            like = f"%{zona.strip()}%"
+            q = q.where(or_(WMSZona.codigo.ilike(like), WMSZona.nombre.ilike(like), WMSZona.tipo.ilike(like)))
+    if producto and producto.strip():
+        like = f"%{producto.strip()}%"
+        q = q.join(WMSProducto, WMSInventarioUbicacion.producto_id == WMSProducto.id)             .where(or_(WMSProducto.sku.ilike(like), WMSProducto.nombre.ilike(like)))
+    if depositante_id:
+        q = q.where(WMSInventarioUbicacion.producto_id.in_(
+            select(WMSProducto.id).where(WMSProducto.depositante_id == depositante_id)))
+    return q
+
+
+async def _con_relaciones(db: AsyncSession, q):
+    """Ejecuta la consulta con producto, ubicación y lote, y el código de la estiba."""
+    filas = (await db.execute(q.options(
+        selectinload(WMSInventarioUbicacion.producto),
+        selectinload(WMSInventarioUbicacion.ubicacion),
+        selectinload(WMSInventarioUbicacion.lote),
+    ))).scalars().all()
+    # El código de la estiba de cada fila (lo que el operario ve en la etiqueta).
+    ids = {f.contenedor_id for f in filas if f.contenedor_id}
+    if ids:
+        codigos = dict((await db.execute(select(WMSContenedor.id, WMSContenedor.codigo)
+                                          .where(WMSContenedor.id.in_(ids)))).all())
+        for f in filas:
+            f.contenedor_codigo = codigos.get(f.contenedor_id)
+    return filas
+
+
 @router.get("/inventario/", response_model=List[WMSInventarioResponse])
 async def ver_inventario(
     almacen_id: Optional[int] = None,
@@ -1351,47 +1454,51 @@ async def ver_inventario(
     zona: Optional[str] = None,
     producto: Optional[str] = None,
     depositante_id: Optional[int] = None,
+    incluir_vacias: bool = Query(False, description="También las posiciones que ya quedaron en cero"),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    q = (
-        select(WMSInventarioUbicacion)
-        .options(
-            selectinload(WMSInventarioUbicacion.producto),
-            selectinload(WMSInventarioUbicacion.ubicacion),
-            selectinload(WMSInventarioUbicacion.lote),
-        )
-    )
-    if producto_id:
-        q = q.where(WMSInventarioUbicacion.producto_id == producto_id)
-    if ubicacion_id:
-        q = q.where(WMSInventarioUbicacion.ubicacion_id == ubicacion_id)
-    if lote_id:
-        q = q.where(WMSInventarioUbicacion.lote_id == lote_id)
-    if almacen_id or (zona and zona.strip()):
-        q = q.join(WMSUbicacion, WMSInventarioUbicacion.ubicacion_id == WMSUbicacion.id)\
-             .join(WMSZona, WMSUbicacion.zona_id == WMSZona.id)
-        if almacen_id:
-            q = q.where(WMSZona.almacen_id == almacen_id)
-        if zona and zona.strip():
-            like = f"%{zona.strip()}%"
-            q = q.where(or_(WMSZona.codigo.ilike(like), WMSZona.nombre.ilike(like), WMSZona.tipo.ilike(like)))
-    if producto and producto.strip():
-        like = f"%{producto.strip()}%"
-        q = q.join(WMSProducto, WMSInventarioUbicacion.producto_id == WMSProducto.id)\
-             .where(or_(WMSProducto.sku.ilike(like), WMSProducto.nombre.ilike(like)))
-    if depositante_id:
-        q = q.where(WMSInventarioUbicacion.producto_id.in_(
-            select(WMSProducto.id).where(WMSProducto.depositante_id == depositante_id)))
-    filas = (await db.execute(q)).scalars().all()
-    # El código de la estiba de cada fila (lo que el operario ve en la etiqueta).
-    ids = {f.contenedor_id for f in filas if f.contenedor_id}
-    if ids:
-        codigos = dict((await db.execute(select(WMSContenedor.id, WMSContenedor.codigo)
-                                          .where(WMSContenedor.id.in_(ids)))).all())
-        for f in filas:
-            f.contenedor_codigo = codigos.get(f.contenedor_id)
-    return filas
+    """Todo el inventario que cumple los filtros (picking, traslados, lector, exportar)."""
+    q = _consulta_inventario(almacen_id, producto_id, ubicacion_id, lote_id, zona, producto, depositante_id, incluir_vacias)
+    return await _con_relaciones(db, q.order_by(WMSInventarioUbicacion.id))
+
+
+class WMSInventarioPagina(BaseModel):
+    items: List[WMSInventarioResponse]
+    total: int
+    pagina: int
+    por_pagina: int
+    totales: Dict[str, float]
+
+
+@router.get("/inventario/pagina", response_model=WMSInventarioPagina)
+async def ver_inventario_pagina(
+    almacen_id: Optional[int] = None,
+    producto_id: Optional[int] = None,
+    ubicacion_id: Optional[int] = None,
+    lote_id: Optional[int] = None,
+    zona: Optional[str] = None,
+    producto: Optional[str] = None,
+    depositante_id: Optional[int] = None,
+    incluir_vacias: bool = False,
+    pagina: int = Query(1, ge=1),
+    por_pagina: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    """Una página del inventario, con el total de filas y las sumas de TODO el
+    filtro (la fila «Stock total» no puede salir solo de la página visible).
+    Con miles de posiciones, la lista completa eran ~9 MB y varios segundos."""
+    q = _consulta_inventario(almacen_id, producto_id, ubicacion_id, lote_id, zona, producto, depositante_id, incluir_vacias)
+    sub = q.subquery()
+    total, disp, res, blq = (await db.execute(select(
+        func.count(), func.coalesce(func.sum(sub.c.cantidad_disponible), 0),
+        func.coalesce(func.sum(sub.c.cantidad_reservada), 0), func.coalesce(func.sum(sub.c.cantidad_bloqueada), 0)
+    ).select_from(sub))).one()
+    filas = await _con_relaciones(db, q.order_by(WMSInventarioUbicacion.id).offset((pagina - 1) * por_pagina).limit(por_pagina))
+    return {"items": filas, "total": total, "pagina": pagina, "por_pagina": por_pagina,
+            "totales": {"disponible": float(disp), "reservada": float(res), "bloqueada": float(blq),
+                        "total": float(disp) + float(res) + float(blq)}}
 
 
 @router.post("/inventario/ajuste/", response_model=WMSMovimientoResponse, status_code=201)
@@ -1497,8 +1604,10 @@ async def transferir_inventario(
             estado=EstadoViajeTMSEnum.PROGRAMADO,
             origen_ciudad=(alm_ori.ciudad if alm_ori else None),
             origen_direccion=(f"{alm_ori.nombre} — {alm_ori.direccion or ''}".strip(" —") if alm_ori else None),
+            origen_lat=(alm_ori.lat if alm_ori else None), origen_lng=(alm_ori.lng if alm_ori else None),
             destino_ciudad=(alm_des.ciudad if alm_des else None),
             destino_direccion=(f"{alm_des.nombre} — {alm_des.direccion or ''}".strip(" —") if alm_des else None),
+            destino_lat=(alm_des.lat if alm_des else None), destino_lng=(alm_des.lng if alm_des else None),
             peso_kg=peso or None,
             volumen_m3=volumen or None,
             num_entregas=1,
@@ -2551,8 +2660,12 @@ async def crear_despacho(
             vehiculo_id=(vehiculo_tms.id if vehiculo_tms else None),
             origen_ciudad=(alm.ciudad if alm else None),
             origen_direccion=(f"{alm.nombre} — {alm.direccion or ''}".strip(" —") if alm else None),
-            destino_ciudad=(cli.ciudad if cli else None),
-            destino_direccion=(cli.nombre if cli else None),
+            origen_lat=(alm.lat if alm else None), origen_lng=(alm.lng if alm else None),
+            # El destino es la dirección de compra de la orden (pedido del canal);
+            # si no la tiene, la ciudad del cliente.
+            destino_ciudad=(orden.destino_ciudad or (cli.ciudad if cli else None)),
+            destino_direccion=(orden.destino_direccion or (cli.nombre if cli else None)),
+            destino_lat=orden.destino_lat, destino_lng=orden.destino_lng,
             # Los del despacho: si se calcularon desde los bultos, `data` no los trae.
             peso_kg=despacho.peso_total_kg,
             volumen_m3=despacho.volumen_total_m3,

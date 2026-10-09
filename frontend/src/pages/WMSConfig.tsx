@@ -4,7 +4,8 @@ import {
 } from '@mui/material'
 import { TextField } from '@/components/comun/Desplegables'
 import Grid from '@mui/material/Grid2'
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Architecture } from '@mui/icons-material'
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Architecture, TravelExplore } from '@mui/icons-material'
+import { SelectorPunto, type Punto } from '@/components/mapa/SelectorPunto'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient as api } from '@/api/client'
@@ -459,7 +460,15 @@ function CiudadesSection() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 3: Almacenes
 // ═══════════════════════════════════════════════════════════════════════════════
-interface Almacen extends SimpleItem { codigo: string; nombre: string; direccion?: string; ciudad?: string; pais?: string; flujo_recepcion?: string }
+interface Almacen extends SimpleItem { codigo: string; nombre: string; direccion?: string; ciudad?: string; pais?: string; flujo_recepcion?: string
+  lat?: number | null; lng?: number | null; geo_precision?: string | null }
+const PRECISION_GEO: Record<string, { texto: string; color: 'success' | 'warning' | 'info' | 'error' }> = {
+  DIRECCION: { texto: 'Ubicada por la dirección', color: 'success' },
+  MANUAL: { texto: 'Punto fijado a mano', color: 'info' },
+  VIA: { texto: 'Aproximada: sobre la vía', color: 'warning' },
+  CIUDAD: { texto: 'Aproximada: centro de la ciudad', color: 'warning' },
+  NO_ENCONTRADA: { texto: 'No se encontró en el mapa', color: 'error' },
+}
 
 function AlmacenesSection() {
   const navigate = useNavigate()
@@ -471,6 +480,20 @@ function AlmacenesSection() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '', flujo_recepcion: 'DIRECTO' })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const [punto, setPunto] = useState<Punto | null>(null)
+  const [puntoTocado, setPuntoTocado] = useState(false)
+  const [buscando, setBuscando] = useState(false)
+  const fijar = (p: Punto) => { setPunto(p); setPuntoTocado(true) }
+  const buscarEnMapa = async () => {
+    const q = [form.direccion, form.ciudad, form.pais].filter(Boolean).join(', ')
+    if (!form.ciudad) { toast.error('Elija primero la ciudad'); return }
+    setBuscando(true)
+    try {
+      const r = await api.get('/wms/geo/buscar', { params: { q, pais: form.pais || 'Colombia' } })
+      if (!r.data.length) toast.error('No se encontró esa dirección: haga clic en el mapa donde está la bodega')
+      else { fijar({ lat: r.data[0].lat, lng: r.data[0].lng }); toast.success('Revise el pin y arrástrelo si hace falta') }
+    } catch (e) { toast.error(mensajeDeError(e)) } finally { setBuscando(false) }
+  }
 
   const ciudadesFiltradas = (paises as Pais[]).length > 0 && form.pais
     ? (ciudades as Ciudad[]).filter(c => {
@@ -482,6 +505,7 @@ function AlmacenesSection() {
   const openDialog = (item?: Almacen) => {
     if (item) { setEditing(item); setForm({ codigo: item.codigo, nombre: item.nombre, direccion: item.direccion ?? '', ciudad: item.ciudad ?? '', pais: item.pais ?? '', flujo_recepcion: item.flujo_recepcion ?? 'DIRECTO' }) }
     else { setEditing(null); setForm({ codigo: '', nombre: '', direccion: '', ciudad: '', pais: '', flujo_recepcion: 'DIRECTO' }) }
+    setPunto(item?.lat != null && item?.lng != null ? { lat: item.lat, lng: item.lng } : null); setPuntoTocado(false)
     setOpen(true)
   }
 
@@ -490,7 +514,8 @@ function AlmacenesSection() {
     if (!form.codigo || !form.nombre) { toast.error('Código y nombre son obligatorios'); return }
     if (!form.pais) { toast.error('El país es obligatorio'); return }
     if (!form.ciudad) { toast.error('La ciudad es obligatoria'); return }
-    const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    const payload: Record<string, unknown> = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
+    if (puntoTocado && punto) Object.assign(payload, punto)
     if (editing) update.mutate({ id: editing.id, d: payload }, { onSuccess: () => setOpen(false) })
     else create.mutate(payload, { onSuccess: () => setOpen(false) })
   }
@@ -500,8 +525,10 @@ function AlmacenesSection() {
       {(items as Almacen[]).map(item => (
         <ItemCard key={item.id} item={item}
           extraLabels={[{ key: 'codigo', label: 'Código' }, { key: 'ciudad', label: 'Ciudad' }, { key: 'pais', label: 'País' }, { key: 'flujo_recepcion', label: 'Recepción' }]}
-          accion={<Button size="small" variant="outlined" startIcon={<Architecture sx={{ fontSize: 16 }} />} onClick={() => navigate(`/wms/constructor?almacen=${item.id}`)}
-            sx={{ textTransform: 'none', borderRadius: 2, mr: 0.5 }}>Diseñar bodega</Button>}
+          accion={<><Chip size="small" variant="outlined" color={item.lat != null ? PRECISION_GEO[item.geo_precision ?? 'DIRECCION']?.color ?? 'success' : 'default'}
+            label={item.lat != null ? `📍 ${PRECISION_GEO[item.geo_precision ?? 'DIRECCION']?.texto ?? 'En el mapa'}` : 'Sin ubicar en el mapa'} sx={{ mr: 1, fontSize: 11 }} />
+            <Button size="small" variant="outlined" startIcon={<Architecture sx={{ fontSize: 16 }} />} onClick={() => navigate(`/wms/constructor?almacen=${item.id}`)}
+              sx={{ textTransform: 'none', borderRadius: 2, mr: 0.5 }}>Diseñar bodega</Button></>}
           onEdit={() => openDialog(item)} onDelete={() => setDeleteId(item.id)} />
       ))}
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -531,6 +558,21 @@ function AlmacenesSection() {
               <MenuItem value="DIRECTO">Directo a la ubicación</MenuItem>
               <MenuItem value="DIRIGIDO">Ubicación dirigida (con tareas)</MenuItem>
             </TextField>
+            <Box>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.75}>
+                <Box>
+                  <Typography fontSize={13} fontWeight={700}>Ubicación en el mapa</Typography>
+                  <Typography fontSize={11.5} color="text.secondary">Es el origen de los viajes del TMS. Clic en el mapa o arrastre el pin para corregirla.</Typography>
+                </Box>
+                <Button size="small" variant="outlined" startIcon={buscando ? <CircularProgress size={14} /> : <TravelExplore sx={{ fontSize: 16 }} />}
+                  onClick={buscarEnMapa} disabled={buscando} sx={{ textTransform: 'none', borderRadius: 2, whiteSpace: 'nowrap' }}>Buscar dirección</Button>
+              </Stack>
+              <SelectorPunto punto={punto} onCambio={fijar} />
+              <Typography fontSize={11.5} color="text.secondary" mt={0.5}>
+                {punto ? `${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)} · ${puntoTocado ? 'se guardará este punto' : PRECISION_GEO[editing?.geo_precision ?? '']?.texto ?? ''}`
+                  : 'Si no fija el punto, se ubica solo con la dirección al guardar.'}
+              </Typography>
+            </Box>
           </Stack></DialogContent>
           <CrudActions onCancel={() => setOpen(false)} isPending={create.isPending || update.isPending} editing={!!editing} />
         </Box>

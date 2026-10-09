@@ -32,7 +32,7 @@ interface LayoutProps {
   noPadding?: boolean
 }
 
-const MODULOS_CONTRATABLES = ['wms', 'tms', 'pos']
+const MODULOS_CONTRATABLES = ['wms', 'tms', 'pos', 'wfm']
 
 /**
  * Los módulos que este usuario puede ver, ya con sus secciones filtradas:

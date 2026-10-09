@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
-  Box, Typography, Card, CardContent, Stack, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Skeleton, Alert, MenuItem, InputLabel, Button, Chip, IconButton, Collapse, Dialog, DialogTitle, DialogContent, DialogActions, alpha,
+  Box, Typography, Card, CardContent, Stack, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Skeleton, Alert, MenuItem, InputLabel, Button, Chip, IconButton, Collapse, Dialog, DialogTitle, DialogContent, DialogActions, alpha, Autocomplete, TextField as MuiTextField,
 } from '@mui/material'
 import { TextField, Select, FormControl } from '@/components/comun/Desplegables'
 import Grid from '@mui/material/Grid2'
@@ -8,7 +8,8 @@ import Inventory2Icon from '@mui/icons-material/Inventory2'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import CheckIcon from '@mui/icons-material/Check'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { BotonExportar, Paginacion, usePaginacion, POR_PAGINA } from '@/components/comun/HerramientasTabla'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import OcupacionBodega from '@/components/wms/OcupacionBodega'
@@ -54,6 +55,12 @@ interface StockItem {
   cantidad_reservada: number
   cantidad_bloqueada: number
   updated_at?: string
+}
+
+interface PaginaStock {
+  items: StockItem[]
+  total: number
+  totales: { disponible: number; reservada: number; bloqueada: number; total: number }
 }
 
 // Historial de movimientos (ajustes / transferencias) — WMSMovimientoResponse
@@ -186,16 +193,37 @@ export default function WMSInventario() {
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
-  const stockQuery = useQuery<StockItem[]>({
-    queryKey: ['wms-stock', filtros],
+  // El stock se pagina en el servidor: con miles de posiciones la lista
+  // completa eran varios MB y obligaba a bajar hasta el final de la página.
+  const [paginaStock, setPaginaStock] = useState(0)
+  const [porPaginaStock, setPorPaginaStock] = useState(POR_PAGINA)
+  useEffect(() => { setPaginaStock(0) }, [filtros])
+  const paramsStock = () => {
+    const params: Record<string, string> = {}
+    if (filtros.almacen_id) params.almacen_id = filtros.almacen_id
+    if (filtros.zona) params.zona = filtros.zona
+    if (filtros.producto) params.producto = filtros.producto
+    return params
+  }
+  const stockQuery = useQuery<PaginaStock>({
+    queryKey: ['wms-stock', filtros, paginaStock, porPaginaStock],
     queryFn: async () => {
-      const params: Record<string, string> = {}
-      if (filtros.almacen_id) params.almacen_id = filtros.almacen_id
-      if (filtros.zona) params.zona = filtros.zona
-      if (filtros.producto) params.producto = filtros.producto
-      const res = await api.get('/wms/inventario/', { params })
+      const res = await api.get('/wms/inventario/pagina', { params: { ...paramsStock(), pagina: paginaStock + 1, por_pagina: porPaginaStock } })
       return res.data
     },
+    placeholderData: keepPreviousData,
+  })
+  // Exportar: todas las filas del filtro, no solo la página visible.
+  const stockCompleto = async (): Promise<StockItem[]> => (await api.get('/wms/inventario/', { params: paramsStock() })).data
+
+  // Reservas y bloqueos: el registro se busca en el servidor (antes era una
+  // lista desplegable con TODAS las posiciones del inventario).
+  const [busquedaInv, setBusquedaInv] = useState('')
+  const [invElegido, setInvElegido] = useState<StockItem | null>(null)
+  const opcionesInvQuery = useQuery<StockItem[]>({
+    queryKey: ['wms-stock', 'buscar', busquedaInv],
+    queryFn: async () => (await api.get('/wms/inventario/pagina', { params: { producto: busquedaInv, por_pagina: 50 } })).data.items,
+    enabled: busquedaInv.trim().length >= 2,
   })
 
   const ajustesQuery = useQuery<Movimiento[]>({
@@ -366,7 +394,7 @@ export default function WMSInventario() {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  const stockItems = stockQuery.data ?? []
+  const stockItems = stockQuery.data?.items ?? []
   const ajustes = ajustesQuery.data ?? []
   const transferencias = transferenciasQuery.data ?? []
   const conteos = conteosQuery.data ?? []
@@ -375,10 +403,15 @@ export default function WMSInventario() {
   const almacenes = almacenesQuery.data ?? []
   const motivos = motivosQuery.data ?? []
 
-  const totalDisponible = stockItems.reduce((s, i) => s + i.cantidad_disponible, 0)
-  const totalReservada = stockItems.reduce((s, i) => s + i.cantidad_reservada, 0)
-  const totalBloqueada = stockItems.reduce((s, i) => s + i.cantidad_bloqueada, 0)
-  const totalGeneral = totalDisponible + totalReservada + totalBloqueada
+  // Sumas de TODO el filtro (las calcula el servidor), no solo de la página.
+  const totalDisponible = stockQuery.data?.totales.disponible ?? 0
+  const totalReservada = stockQuery.data?.totales.reservada ?? 0
+  const totalBloqueada = stockQuery.data?.totales.bloqueada ?? 0
+  const totalGeneral = stockQuery.data?.totales.total ?? 0
+  const pagAjustes = usePaginacion(ajustes)
+  const pagTransferencias = usePaginacion(transferencias)
+  const pagConteos = usePaginacion(conteos)
+  const fechaTexto = (d?: string | null) => (d ? aFecha(d).toLocaleString('es-CO') : '')
 
   const tipoBadgeColor = (tipo: string) => {
     if (tipo === 'CICLICO') return 'primary'
@@ -533,6 +566,35 @@ export default function WMSInventario() {
 
             {/* Stock table */}
             <Card>
+              <Box sx={{ px: 2, pt: 1.5, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                <Typography fontWeight={700}>
+                  Stock por ubicación
+                  <Typography component="span" color="text.secondary" fontSize={13} ml={1}>
+                    {(stockQuery.data?.total ?? 0).toLocaleString('es-CO')} posiciones con existencia
+                  </Typography>
+                </Typography>
+                <BotonExportar<StockItem>
+                  titulo="Stock en tiempo real" archivo="stock_inventario" obtenerFilas={stockCompleto}
+                  subtitulo={[filtros.almacen_id && `Almacén: ${almacenes.find((a) => String(a.id) === filtros.almacen_id)?.nombre ?? ''}`,
+                              filtros.zona && `Zona: ${filtros.zona}`, filtros.producto && `Producto: ${filtros.producto}`].filter(Boolean).join(' · ') || 'Todos los almacenes'}
+                  columnas={[
+                    { titulo: 'SKU', valor: (i) => i.producto?.sku },
+                    { titulo: 'Producto', valor: (i) => i.producto?.nombre },
+                    { titulo: 'Ubicación', valor: (i) => i.ubicacion?.codigo },
+                    { titulo: 'Pasillo', valor: (i) => i.ubicacion?.pasillo },
+                    { titulo: 'Estantería', valor: (i) => i.ubicacion?.estanteria },
+                    { titulo: 'Nivel', valor: (i) => i.ubicacion?.nivel },
+                    { titulo: 'Posición', valor: (i) => i.ubicacion?.posicion },
+                    { titulo: 'Lote', valor: (i) => i.lote?.numero_lote },
+                    { titulo: 'Vence', valor: (i) => i.lote?.fecha_vencimiento ?? '' },
+                    { titulo: 'Estiba', valor: (i) => i.contenedor_codigo },
+                    { titulo: 'Disponible', valor: (i) => i.cantidad_disponible },
+                    { titulo: 'Reservada', valor: (i) => i.cantidad_reservada },
+                    { titulo: 'Bloqueada', valor: (i) => i.cantidad_bloqueada },
+                    { titulo: 'Total', valor: (i) => i.cantidad_disponible + i.cantidad_reservada + i.cantidad_bloqueada },
+                  ]}
+                />
+              </Box>
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small">
                   <TableHead>
@@ -645,7 +707,7 @@ export default function WMSInventario() {
                         sx={{ bgcolor: alpha(WMS_COLOR, 0.05) }}
                       >
                         <TableCell colSpan={5} sx={{ fontWeight: 700 }}>
-                          Stock Total
+                          Stock total{(stockQuery.data?.total ?? 0) > stockItems.length ? ' (todas las páginas)' : ''}
                         </TableCell>
                         <TableCell align="right">
                           <Chip
@@ -686,6 +748,10 @@ export default function WMSInventario() {
                   </TableBody>
                 </Table>
               </Box>
+              {(stockQuery.data?.total ?? 0) > 0 && (
+                <Paginacion total={stockQuery.data?.total ?? 0} pagina={paginaStock} porPagina={porPaginaStock}
+                  onPagina={setPaginaStock} onPorPagina={setPorPaginaStock} />
+              )}
             </Card>
           </Box>
         )}
@@ -840,9 +906,21 @@ export default function WMSInventario() {
             <Grid size={{ xs: 12, md: 7 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} mb={2}>
-                    Historial de Ajustes
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
+                    <Typography variant="h6" fontWeight={700}>Historial de Ajustes</Typography>
+                    <BotonExportar<Movimiento>
+                      titulo="Historial de ajustes" archivo="ajustes_inventario" obtenerFilas={() => ajustes}
+                      columnas={[
+                        { titulo: 'Fecha', valor: (a) => fechaTexto(a.created_at) },
+                        { titulo: 'SKU', valor: (a) => a.producto?.sku },
+                        { titulo: 'Producto', valor: (a) => a.producto?.nombre ?? `#${a.producto_id}` },
+                        { titulo: 'Ubicación', valor: (a) => ubicacionLabel(a.ubicacion_destino_id ?? a.ubicacion_origen_id) },
+                        { titulo: 'Cantidad', valor: (a) => a.cantidad },
+                        { titulo: 'Referencia', valor: (a) => a.referencia_documento },
+                        { titulo: 'Notas', valor: (a) => a.notas },
+                      ]}
+                    />
+                  </Box>
 
                   {ajustesQuery.isError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
@@ -875,7 +953,7 @@ export default function WMSInventario() {
                                 ))}
                               </TableRow>
                             ))
-                          : ajustes.map((a) => (
+                          : pagAjustes.filasPagina.map((a) => (
                               <TableRow
                                 key={a.id}
                                 hover
@@ -908,6 +986,10 @@ export default function WMSInventario() {
                       </TableBody>
                     </Table>
                   </Box>
+                  {ajustes.length > 0 && (
+                    <Paginacion total={ajustes.length} pagina={pagAjustes.pagina} porPagina={pagAjustes.porPagina}
+                      onPagina={pagAjustes.setPagina} onPorPagina={pagAjustes.setPorPagina} />
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -1102,9 +1184,22 @@ export default function WMSInventario() {
             <Grid size={{ xs: 12, md: 7 }}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={700} mb={2}>
-                    Transferencias Recientes
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
+                    <Typography variant="h6" fontWeight={700}>Transferencias Recientes</Typography>
+                    <BotonExportar<Movimiento>
+                      titulo="Transferencias" archivo="transferencias_inventario" obtenerFilas={() => transferencias}
+                      columnas={[
+                        { titulo: 'Fecha', valor: (t) => fechaTexto(t.created_at) },
+                        { titulo: 'SKU', valor: (t) => t.producto?.sku },
+                        { titulo: 'Producto', valor: (t) => t.producto?.nombre ?? `#${t.producto_id}` },
+                        { titulo: 'Origen', valor: (t) => ubicacionLabel(t.ubicacion_origen_id) },
+                        { titulo: 'Destino', valor: (t) => ubicacionLabel(t.ubicacion_destino_id) },
+                        { titulo: 'Cantidad', valor: (t) => t.cantidad },
+                        { titulo: 'Referencia', valor: (t) => t.referencia_documento },
+                        { titulo: 'Notas', valor: (t) => t.notas },
+                      ]}
+                    />
+                  </Box>
 
                   {transferenciasQuery.isError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
@@ -1137,7 +1232,7 @@ export default function WMSInventario() {
                                 ))}
                               </TableRow>
                             ))
-                          : transferencias.map((t) => (
+                          : pagTransferencias.filasPagina.map((t) => (
                               <TableRow
                                 key={t.id}
                                 hover
@@ -1168,6 +1263,10 @@ export default function WMSInventario() {
                       </TableBody>
                     </Table>
                   </Box>
+                  {transferencias.length > 0 && (
+                    <Paginacion total={transferencias.length} pagina={pagTransferencias.pagina} porPagina={pagTransferencias.porPagina}
+                      onPagina={pagTransferencias.setPagina} onPorPagina={pagTransferencias.setPorPagina} />
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -1186,6 +1285,23 @@ export default function WMSInventario() {
               <Typography variant="h6" fontWeight={700}>
                 Conteos de Inventario
               </Typography>
+              <Box sx={{ flex: 1 }} />
+              <Box sx={{ mr: 1 }}>
+                <BotonExportar<Conteo>
+                  titulo="Conteos de inventario" archivo="conteos_inventario" obtenerFilas={() => conteos}
+                  columnas={[
+                    { titulo: 'Conteo', valor: (c) => c.id },
+                    { titulo: 'Almacén', valor: (c) => c.almacen?.nombre },
+                    { titulo: 'Tipo', valor: (c) => c.tipo },
+                    { titulo: 'Estado', valor: (c) => c.estado },
+                    { titulo: 'Fecha programada', valor: (c) => c.fecha_programada },
+                    { titulo: 'Posiciones', valor: (c) => c.detalles?.length ?? 0 },
+                    { titulo: 'Contadas', valor: (c) => (c.detalles ?? []).filter((d) => d.cantidad_fisica != null).length },
+                    { titulo: 'Con diferencia', valor: (c) => (c.detalles ?? []).filter((d) => d.diferencia).length },
+                    { titulo: 'Diferencia neta', valor: (c) => (c.detalles ?? []).reduce((s, d) => s + (d.diferencia ?? 0), 0) },
+                  ]}
+                />
+              </Box>
               <Button
                 variant="contained"
                 onClick={() => setOpenConteoDialog(true)}
@@ -1226,8 +1342,8 @@ export default function WMSInventario() {
                             ))}
                           </TableRow>
                         ))
-                      : conteos.map((conteo) => (
-                          <>
+                      : pagConteos.filasPagina.map((conteo) => (
+                          <Fragment key={conteo.id}>
                             <TableRow key={conteo.id} hover>
                               <TableCell>
                                 <IconButton
@@ -1422,7 +1538,7 @@ export default function WMSInventario() {
                                 </Collapse>
                               </TableCell>
                             </TableRow>
-                          </>
+                          </Fragment>
                         ))}
 
                     {!conteosQuery.isLoading && conteos.length === 0 && (
@@ -1437,6 +1553,10 @@ export default function WMSInventario() {
                   </TableBody>
                 </Table>
               </Box>
+              {conteos.length > 0 && (
+                <Paginacion total={conteos.length} pagina={pagConteos.pagina} porPagina={pagConteos.porPagina}
+                  onPagina={pagConteos.setPagina} onPorPagina={pagConteos.setPorPagina} />
+              )}
             </Card>
           </Box>
         )}
@@ -1445,7 +1565,9 @@ export default function WMSInventario() {
         {/* TAB 4 — Reservas y Bloqueos                                       */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {tab === 4 && (() => {
-          const invSel = stockItems.find((i) => String(i.id) === reservaForm.inv_id)
+          const opcionesInv = opcionesInvQuery.data ?? []
+          const invSel = opcionesInv.find((i) => String(i.id) === reservaForm.inv_id)
+            ?? (invElegido && String(invElegido.id) === reservaForm.inv_id ? invElegido : undefined)
           const cantNum = Number(reservaForm.cantidad)
           const reservaValida = !!invSel && cantNum > 0
           const invLabel = (i: StockItem) =>
@@ -1494,19 +1616,19 @@ export default function WMSInventario() {
                         </FormControl>
                       </Grid>
                       <Grid size={{ xs: 12 }}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Registro de inventario</InputLabel>
-                          <Select
-                            label="Registro de inventario"
-                            value={reservaForm.inv_id}
-                            onChange={(e) => setReservaForm((f) => ({ ...f, inv_id: e.target.value }))}
-                          >
-                            <MenuItem value="">Seleccionar...</MenuItem>
-                            {stockItems.map((i) => (
-                              <MenuItem key={i.id} value={String(i.id)}>{invLabel(i)}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                        <Autocomplete
+                          size="small"
+                          options={opcionesInv}
+                          value={invSel ?? null}
+                          loading={opcionesInvQuery.isFetching}
+                          filterOptions={(x) => x}
+                          getOptionLabel={(i) => invLabel(i)}
+                          isOptionEqualToValue={(o, v) => o.id === v.id}
+                          noOptionsText={busquedaInv.trim().length < 2 ? 'Escriba al menos 2 letras del SKU o del producto' : 'Sin existencias que coincidan'}
+                          onInputChange={(_, v, motivo) => { if (motivo === 'input') setBusquedaInv(v) }}
+                          onChange={(_, v) => { setInvElegido(v); setReservaForm((f) => ({ ...f, inv_id: v ? String(v.id) : '' })) }}
+                          renderInput={(params) => <MuiTextField {...params} label="Registro de inventario (buscar SKU o producto)" />}
+                        />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField

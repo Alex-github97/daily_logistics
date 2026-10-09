@@ -92,4 +92,6 @@ export const MODULOS_DL = [
     descripcion: 'Viajes, flota, rutas, tracking y liquidaciones.' },
   { clave: 'pos', sigla: 'POS', nombre: 'Punto de venta', ruta: '/pos', permiso: 'pos',
     descripcion: 'Venta en mostrador, turnos de caja y facturación.' },
+  { clave: 'wfm', sigla: 'WFM', nombre: 'Personal', ruta: '/personal', permiso: 'wfm',
+    descripcion: 'Jornadas, estaciones de trabajo, tareas de cada persona y productividad.' },
 ] as const

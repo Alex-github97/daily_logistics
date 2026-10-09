@@ -4,7 +4,7 @@ from app.core.database import Base
 from app.infrastructure.models.base import TimestampMixin
 
 # Permisos de Daily Logistics: un permiso por módulo, más la administración.
-MODULOS_SISTEMA = ["wms", "tms", "pos", "usuarios", "configuracion"]
+MODULOS_SISTEMA = ["wms", "tms", "pos", "wfm", "usuarios", "configuracion"]
 
 
 def _permisos(*activos: str) -> dict:
@@ -23,10 +23,10 @@ ROLES_DEFECTO = [
     {
         "nombre": "SUPERVISOR_LOGISTICO",
         "label": "Supervisor Logístico",
-        "descripcion": "Supervisa almacén, transporte y punto de venta; aprueba excepciones.",
+        "descripcion": "Supervisa almacén, transporte, punto de venta y personal; aprueba excepciones.",
         "color": "#D97706",
         "es_sistema": True,
-        "permisos": _permisos("wms", "tms", "pos"),
+        "permisos": _permisos("wms", "tms", "pos", "wfm"),
     },
     {
         "nombre": "OPERADOR_BODEGA",
@@ -34,7 +34,7 @@ ROLES_DEFECTO = [
         "descripcion": "Recibe, ubica, cuenta, alista, empaca y despacha en el WMS.",
         "color": "#2563EB",
         "es_sistema": True,
-        "permisos": _permisos("wms"),
+        "permisos": _permisos("wms", "wfm"),
     },
     {
         "nombre": "PLANEADOR_TRANSPORTE",
@@ -50,15 +50,15 @@ ROLES_DEFECTO = [
         "descripcion": "Abre y cierra su turno de caja y vende en el POS.",
         "color": "#16A34A",
         "es_sistema": True,
-        "permisos": _permisos("pos"),
+        "permisos": _permisos("pos", "wfm"),
     },
     {
         "nombre": "AUDITOR",
         "label": "Auditor",
-        "descripcion": "Consulta los tres módulos para auditoría y control.",
+        "descripcion": "Consulta los módulos para auditoría y control.",
         "color": "#7C3AED",
         "es_sistema": True,
-        "permisos": _permisos("wms", "tms", "pos"),
+        "permisos": _permisos("wms", "tms", "pos", "wfm"),
     },
     {
         "nombre": "CONSULTA",
@@ -74,7 +74,7 @@ ROLES_DEFECTO = [
         "descripcion": "Perfil para conductores: sus viajes en el TMS.",
         "color": "#0EA5E9",
         "es_sistema": True,
-        "permisos": _permisos("tms"),
+        "permisos": _permisos("tms", "wfm"),
     },
 ]
 

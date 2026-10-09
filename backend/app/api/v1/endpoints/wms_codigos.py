@@ -24,7 +24,7 @@ from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import wms_inventario
@@ -138,6 +138,10 @@ def _prefijo(categoria: Optional[str]) -> str:
 
 async def _sku_nuevo(db: AsyncSession, categoria: Optional[str]) -> str:
     pre = _prefijo(categoria)
+    # «Mayor + 1» solo es seguro de a uno: dos altas simultáneas leían el mismo
+    # mayor y la segunda chocaba. El candado (hasta el fin de la transacción)
+    # hace esperar a la segunda hasta que la primera guarde su SKU.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"sku:{pre}"})
     patron = re.compile(rf"^{pre}-(\d+)$")
     existentes = (await db.execute(select(WMSProducto.sku).where(WMSProducto.sku.like(f"{pre}-%")))).scalars().all()
     mayor = max((int(m.group(1)) for s in existentes if (m := patron.match(s))), default=0)
@@ -176,8 +180,10 @@ def _contiene(nivel: str, unidades: float, por_nivel: Dict[str, float]) -> Optio
     return u
 
 
-async def _salida(db: AsyncSession, p: WMSProducto, existencia: Optional[float] = None) -> ProductoMaestroOut:
-    emps = (await db.execute(select(WMSProductoEmpaque).where(WMSProductoEmpaque.producto_id == p.id))).scalars().all()
+async def _salida(db: AsyncSession, p: WMSProducto, existencia: Optional[float] = None,
+                  emps: Optional[List[WMSProductoEmpaque]] = None) -> ProductoMaestroOut:
+    if emps is None:
+        emps = (await db.execute(select(WMSProductoEmpaque).where(WMSProductoEmpaque.producto_id == p.id))).scalars().all()
     por_nivel = {e.nivel: float(e.unidades) for e in emps}
     niveles = [NivelOut(nivel="UNIDAD", nombre="Unidad", unidades=1, codigo=p.codigo_barras or p.sku)]
     for e in sorted(emps, key=lambda e: NIVELES.index(e.nivel) if e.nivel in NIVELES else 9):
@@ -266,7 +272,12 @@ async def listar_maestro(
                func.sum(WMSInventarioUbicacion.cantidad_disponible + WMSInventarioUbicacion.cantidad_reservada
                         + WMSInventarioUbicacion.cantidad_bloqueada))
         .group_by(WMSInventarioUbicacion.producto_id))).all())
-    return [await _salida(db, p, float(totales.get(p.id) or 0)) for p in productos]
+    # Y los empaques también en una sola: uno por producto eran miles de consultas (26 s con 5.000).
+    empaques: dict = {}
+    for e in (await db.execute(select(WMSProductoEmpaque).where(
+            WMSProductoEmpaque.producto_id.in_([p.id for p in productos] or [0])))).scalars():
+        empaques.setdefault(e.producto_id, []).append(e)
+    return [await _salida(db, p, float(totales.get(p.id) or 0), empaques.get(p.id, [])) for p in productos]
 
 
 @router.get("/maestro/productos/{producto_id}", response_model=ProductoMaestroOut)

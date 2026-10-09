@@ -35,12 +35,24 @@ router = APIRouter(prefix="/wms/layout", tags=["wms-layout"])
 
 ESTANTERIAS = ("SELECTIVO", "GONDOLA", "CANTILEVER")
 CON_POSICIONES = ESTANTERIAS + ("PISO",)
-TIPOS = CON_POSICIONES + ("ZONA", "MURO", "COLUMNA")
+TIPOS = CON_POSICIONES + ("ZONA", "MURO", "COLUMNA", "POLIMURO", "POLIZONA")
+FORMAS = ("POLIMURO", "POLIZONA")
 TIPO_UBICACION = {"SELECTIVO": "PALLET", "CANTILEVER": "ESTANDAR", "GONDOLA": "ESTANDAR", "PISO": "SUELO"}
 PATRON = "{pasillo}-{estanteria}-{posicion}-{nivel}"
 
 
 # ─── Esquemas ────────────────────────────────────────────────────────────────
+
+class PuntoIn(BaseModel):
+    x: float = Field(ge=-5000, le=5000)
+    y: float = Field(ge=-5000, le=5000)
+    s: float = Field(0, ge=-2000, le=2000)        # flecha del arco hacia el siguiente punto
+
+
+class FormaIn(BaseModel):
+    puntos: List[PuntoIn]
+    cerrado: bool = False
+
 
 class ConfigIn(BaseModel):
     ancho_m: float = Field(gt=1, le=2000)
@@ -49,6 +61,7 @@ class ConfigIn(BaseModel):
     plano_x_m: float = 0
     plano_y_m: float = 0
     patron_codigo: str = Field(PATRON, min_length=3, max_length=80)
+    contorno: Optional[List[PuntoIn]] = None
 
 
 class ElementoIn(BaseModel):
@@ -75,6 +88,7 @@ class ElementoIn(BaseModel):
     capacidad_kg: Optional[float] = Field(None, ge=0)
     largo_m: Optional[float] = Field(None, gt=0, le=2000)
     ancho_m: Optional[float] = Field(None, gt=0, le=2000)
+    forma: Optional[FormaIn] = None
 
 
 class LayoutIn(BaseModel):
@@ -149,7 +163,7 @@ def _elem_dict(e: WMSLayoutElemento) -> dict:
     return {k: getattr(e, k) for k in (
         "id", "tipo", "nombre", "pasillo", "estanteria", "zona_id", "ubicacion_id", "foto_id", "categoria", "color",
         "x_m", "y_m", "rotacion", "modulos", "por_modulo", "niveles", "frente_cm", "fondo_cm", "alto_nivel_cm",
-        "capacidad_kg", "largo_m", "ancho_m", "orden")}
+        "capacidad_kg", "largo_m", "ancho_m", "orden", "forma")}
 
 
 # ─── Leer y guardar ──────────────────────────────────────────────────────────
@@ -191,7 +205,7 @@ async def ver_layout(almacen_id: int, db: AsyncSession = Depends(get_db), _=Depe
     return {
         "almacen": {"id": alm.id, "codigo": alm.codigo, "nombre": alm.nombre},
         "config": {"ancho_m": c.ancho_m, "largo_m": c.largo_m, "escala_m_px": c.escala_m_px, "plano_x_m": c.plano_x_m,
-                   "plano_y_m": c.plano_y_m, "patron_codigo": c.patron_codigo} if c else None,
+                   "plano_y_m": c.plano_y_m, "patron_codigo": c.patron_codigo, "contorno": c.contorno} if c else None,
         "elementos": salida,
         "plano": {"id": plano.id, "ancho": plano.ancho, "alto": plano.alto,
                   "vectorizado": _existe(_derivado(plano.archivo, ".svg"))} if plano else None,
@@ -208,9 +222,12 @@ async def guardar_layout(almacen_id: int, data: LayoutIn, db: AsyncSession = Dep
     una estructura con mercancía en las posiciones que desaparecen se rechaza."""
     await _almacen(db, almacen_id)
     codigo_de(data.config.patron_codigo, "ALM", "ZON", "A", "01", 1, 1)   # valida el patrón
+    if data.config.contorno is not None and 0 < len(data.config.contorno) < 3:
+        raise HTTPException(422, "El contorno de la bodega necesita al menos 3 puntos.")
     c = await _config(db, almacen_id, crear=True)
     for k, v in data.config.model_dump().items():
         setattr(c, k, v)
+    c.contorno = c.contorno or None
 
     zonas_ok = set((await db.execute(select(WMSZona.id).where(WMSZona.almacen_id == almacen_id))).scalars())
     actuales = {e.id: e for e in (await db.execute(select(WMSLayoutElemento).where(
@@ -242,6 +259,10 @@ async def guardar_layout(almacen_id: int, data: LayoutIn, db: AsyncSession = Dep
     for orden, d in enumerate(data.elementos):
         if d.tipo not in TIPOS:
             raise HTTPException(422, f"Tipo de estructura desconocido: {d.tipo}.")
+        if d.tipo in FORMAS:
+            minimo = 2 if d.tipo == "POLIMURO" else 3
+            if not d.forma or len(d.forma.puntos) < minimo:
+                raise HTTPException(422, f"«{d.nombre or d.tipo}» necesita al menos {minimo} puntos.")
         if d.zona_id and d.zona_id not in zonas_ok:
             raise HTTPException(422, f"La zona de «{d.nombre or d.tipo}» no es de este almacén.")
         campos = d.model_dump(exclude={"id", "clave"})
@@ -392,6 +413,51 @@ async def generar_ubicaciones(almacen_id: int, data: GenerarIn, db: AsyncSession
     return {"simulado": data.simular, "totales": tot, "elementos": resumen, "conflictos": conflictos[:200]}
 
 
+# ─── Estado de una estructura (vista de frente) ──────────────────────────────
+
+@router.get("/estructuras")
+async def listar_estructuras(almacen_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    """Las estructuras con posiciones del layout, con su ocupación (para la
+    lista de la pestaña Estanterías)."""
+    datos = await ver_layout(almacen_id, db)
+    return [{k: e[k] for k in ("id", "tipo", "nombre", "pasillo", "estanteria", "modulos", "por_modulo", "niveles",
+                                "foto_id", "vinculadas", "ocupadas", "ocupacion_pct", "zona_id")}
+            | {"nombre": e["nombre"] or "-".join(x for x in (e["pasillo"], e["estanteria"]) if x),
+               "posiciones": e["modulos"] * e["por_modulo"], "niveles_vista": 1 if e["tipo"] == "PISO" else e["niveles"]}
+            for e in datos["elementos"] if e["tipo"] in CON_POSICIONES]
+
+
+@router.get("/estructuras/{eid}/estado")
+async def estado_estructura(eid: int, producto_id: Optional[int] = None, db: AsyncSession = Depends(get_db),
+                            _=Depends(get_current_user)):
+    """Cada posición (nivel × posición) de la estructura con su ubicación,
+    ocupación y contenido."""
+    from app.api.v1.endpoints.wms_mapa import _estado_ubicaciones
+    e = await db.get(WMSLayoutElemento, eid)
+    if e is None or e.tipo not in CON_POSICIONES:
+        raise HTTPException(404, "Estructura no encontrada.")
+    pos = (await db.execute(select(WMSLayoutPosicion).where(WMSLayoutPosicion.elemento_id == eid))).scalars().all()
+    enl = {(p.nivel, p.posicion): p.ubicacion_id for p in pos}
+    est = await _estado_ubicaciones(db, e.almacen_id, set(enl.values()), producto_id) if enl else {}
+    celdas = []
+    for n in range(1, niveles_de(e) + 1):
+        for p in range(1, posiciones_de(e) + 1):
+            uid = enl.get((n, p))
+            x = est.get(uid) if uid else None
+            celdas.append({"nivel": n, "posicion": p, "ubicacion_id": uid,
+                           **(x if x else {"codigo": None, "unidades": 0, "ocupacion_pct": None, "estado": "SIN_ASIGNAR",
+                                           "contenido": [], "resaltar": False})})
+    resumen = defaultdict(int)
+    for c in celdas:
+        resumen[c["estado"]] += 1
+    zona = await db.get(WMSZona, e.zona_id) if e.zona_id else None
+    largo, fondo = huella(e)
+    return {"estructura": _elem_dict(e) | {"nombre": e.nombre or "-".join(x for x in (e.pasillo, e.estanteria) if x),
+                                           "zona": zona.codigo if zona else None, "largo_m": largo, "fondo_m": fondo,
+                                           "posiciones": posiciones_de(e), "niveles_vista": niveles_de(e)},
+            "celdas": celdas, "resumen": resumen}
+
+
 # ─── Importar lo que ya existe ───────────────────────────────────────────────
 
 @router.post("/importar")
@@ -470,7 +536,7 @@ async def escena_layout(db, almacen_id: int, producto_id: Optional[int] = None) 
             a = est.get(e.ubicacion_id) if e.ubicacion_id else None
             areas.append({"id": f"e{e.id}", "elemento_id": e.id, "tipo": e.tipo, "nombre": e.nombre, "categoria": e.categoria,
                           "color": e.color, "x": e.x_m, "z": e.y_m, "largo_m": largo, "ancho_m": fondo, "rotacion": e.rotacion,
-                          "ocupacion": a})
+                          "ocupacion": a, "forma": e.forma, "espesor_m": (e.fondo_cm or 20) / 100})
             continue
         niv, tot = niveles_de(e), posiciones_de(e)
         lista, ocupadas, vinc = [], 0, 0
@@ -497,7 +563,7 @@ async def escena_layout(db, almacen_id: int, producto_id: Optional[int] = None) 
                       "unidades": sum(x["unidades"] for x in lista), "x": e.x_m, "z": e.y_m, "rotacion": e.rotacion,
                       "celdas": lista})
     plano = (await db.execute(select(WMSPlano).where(WMSPlano.almacen_id == almacen_id))).scalar_one_or_none()
-    piso = {"ancho_m": c.ancho_m, "largo_m": c.largo_m, "plano_id": None, "plano_rect": None}
+    piso = {"ancho_m": c.ancho_m, "largo_m": c.largo_m, "plano_id": None, "plano_rect": None, "contorno": c.contorno}
     if plano and c.escala_m_px:
         piso.update(plano_id=plano.id, plano_rect={"x": c.plano_x_m, "y": c.plano_y_m,
                                                    "w": plano.ancho * c.escala_m_px, "h": plano.alto * c.escala_m_px})

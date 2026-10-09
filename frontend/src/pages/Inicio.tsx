@@ -3,14 +3,14 @@
  */
 import { useNavigate } from 'react-router-dom'
 import { Box, ButtonBase, Typography, alpha } from '@mui/material'
-import { ArrowForward, Warehouse, LocalShipping, PointOfSale, AdminPanelSettings } from '@mui/icons-material'
+import { ArrowForward, Warehouse, LocalShipping, PointOfSale, AdminPanelSettings, Groups } from '@mui/icons-material'
 import { Layout, useModulosVisibles } from '@/components/layout/Layout'
 import { useAuthStore } from '@/store/authStore'
 import { clienteGuardado } from '@/api/cliente'
 import { ACENTO, DESTELLO, MODULOS_DL, PALETA } from '@/config/marca'
 
 const ICONOS: Record<string, JSX.Element> = {
-  wms: <Warehouse />, tms: <LocalShipping />, pos: <PointOfSale />, config: <AdminPanelSettings />,
+  wms: <Warehouse />, tms: <LocalShipping />, pos: <PointOfSale />, wfm: <Groups />, config: <AdminPanelSettings />,
 }
 
 export default function Inicio() {

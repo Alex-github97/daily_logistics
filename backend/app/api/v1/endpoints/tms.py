@@ -638,18 +638,15 @@ async def listar_vehiculos(
     r = await db.execute(q.order_by(TMSVehiculo.placa))
     vehiculos = r.scalars().all()
 
+    # Viajes en tránsito de todos los vehículos en una consulta (antes, una por vehículo).
+    activos = dict((await db.execute(
+        select(TMSViaje.vehiculo_id, func.count(TMSViaje.id)).where(
+            TMSViaje.deleted_at.is_(None), TMSViaje.estado == EstadoViajeTMSEnum.EN_TRANSITO,
+            TMSViaje.vehiculo_id.isnot(None)).group_by(TMSViaje.vehiculo_id))).all())
     resultado = []
     for veh in vehiculos:
-        r2 = await db.execute(
-            select(func.count(TMSViaje.id)).where(
-                TMSViaje.deleted_at.is_(None),
-                TMSViaje.vehiculo_id == veh.id,
-                TMSViaje.estado == EstadoViajeTMSEnum.EN_TRANSITO,
-            )
-        )
-        viajes_activos = r2.scalar() or 0
         resp = TMSVehiculoResponse.model_validate(veh)
-        resp.viajes_activos = viajes_activos
+        resp.viajes_activos = activos.get(veh.id, 0)
         resultado.append(resp)
 
     return resultado
@@ -876,6 +873,37 @@ async def actualizar_viaje(
     return await _viaje_to_response(db, viaje)
 
 
+async def propagar_estado(db: AsyncSession, viaje: TMSViaje, estado_nuevo: str) -> None:
+    """Daily Logistics: el viaje mueve el estado de sus despachos del WMS (uno, o
+    varios si es un viaje consolidado), de las órdenes y de los pedidos de los
+    canales; al entregarse, también el de sus consolidados."""
+    from app.core.marketplace.servicio import viaje_actualizado
+    from app.infrastructure.models.tms import TMSViajeDespacho
+    from app.infrastructure.models.wms import WMSConsolidado
+    ligados = (await db.execute(select(TMSViajeDespacho.despacho_id).where(
+        TMSViajeDespacho.viaje_id == viaje.id))).scalars().all()
+    for despacho_id in (ligados or ([viaje.wms_despacho_id] if viaje.wms_despacho_id else [])):
+        await viaje_actualizado(db, despacho_id, estado_nuevo)
+    if estado_nuevo == "ENTREGADO":
+        for c in (await db.execute(select(WMSConsolidado).where(WMSConsolidado.viaje_id == viaje.id))).scalars():
+            c.estado = "ENTREGADO"
+
+
+async def marcar_entregado(db: AsyncSession, viaje: TMSViaje, cuando: Optional[datetime] = None) -> None:
+    """Entrega el viaje: fecha real, OTIF (a tiempo y completo) y propagación.
+    Una sola forma de entregar, venga de la pantalla del TMS o del evento de
+    llegada a destino: antes el evento dejaba el despacho «en tránsito»."""
+    viaje.fecha_real_entrega = viaje.fecha_real_entrega or cuando or _ahora()
+    if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
+        viaje.otif_on_time = _a_tiempo(viaje, await _tolerancia_otif(db))
+    else:
+        viaje.otif_on_time = None
+    if viaje.otif_in_full is None:
+        viaje.otif_in_full = await _completo_segun_wms(db, viaje)
+    viaje.estado = EstadoViajeTMSEnum.ENTREGADO
+    await propagar_estado(db, viaje, "ENTREGADO")
+
+
 @router.put("/viajes/{viaje_id}/estado")
 async def actualizar_estado_viaje(
     viaje_id: int,
@@ -920,23 +948,13 @@ async def actualizar_estado_viaje(
         viaje.fecha_real_cargue = _ahora()
 
     if estado_nuevo == "ENTREGADO":
-        viaje.fecha_real_entrega = _ahora()
-        # Calcular OTIF
-        if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
-            viaje.otif_on_time = _a_tiempo(viaje, await _tolerancia_otif(db))
-        else:
-            viaje.otif_on_time = None
-        if viaje.otif_in_full is None:
-            viaje.otif_in_full = await _completo_segun_wms(db, viaje)
-
-    viaje.estado = estado_nuevo
+        await marcar_entregado(db, viaje)
+    else:
+        viaje.estado = estado_nuevo
+        if estado_nuevo == "EN_TRANSITO":
+            await propagar_estado(db, viaje, estado_nuevo)
     if notas:
         viaje.notas = notas
-
-    # Daily Logistics: el viaje que sale de un despacho del WMS mueve su estado.
-    if viaje.wms_despacho_id and estado_nuevo in ("EN_TRANSITO", "ENTREGADO"):
-        from app.core.marketplace.servicio import viaje_actualizado
-        await viaje_actualizado(db, viaje.wms_despacho_id, estado_nuevo)
 
     await db.commit()
     await db.refresh(viaje)
@@ -1063,14 +1081,12 @@ async def crear_evento(
     db.add(evento)
     await db.flush()
 
-    # Si el evento es LLEGADA_DESTINO, actualizar estado del viaje si aplica
+    # La llegada a destino (app del conductor o GPS) entrega el viaje igual que
+    # la pantalla del TMS: con OTIF y avisando al WMS, a la orden y al canal.
     if data.tipo_evento == TipoEventoTMSEnum.LLEGADA_DESTINO:
         viaje = await db.get(TMSViaje, data.viaje_id)
         if viaje and viaje.estado == EstadoViajeTMSEnum.EN_TRANSITO:
-            viaje.estado = EstadoViajeTMSEnum.ENTREGADO
-            viaje.fecha_real_entrega = _ahora()
-            if viaje.fecha_programada_entrega and viaje.fecha_real_entrega:
-                viaje.otif_on_time = _a_tiempo(viaje, await _tolerancia_otif(db))
+            await marcar_entregado(db, viaje)
 
     await db.commit()
     await db.refresh(evento)

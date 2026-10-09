@@ -296,14 +296,34 @@ async def asignar_fefo(db: AsyncSession, producto_id: int, ubicacion_ids: Sequen
 
 
 async def asignar_alistamiento(db: AsyncSession, producto_id: int, almacen_id: int, cantidad,
-                               lote_id: Optional[int] = None, dias_vida_minima: int = 0) -> List[Asignacion]:
+                               lote_id: Optional[int] = None, dias_vida_minima: int = 0,
+                               avisar_faltante: bool = True) -> List[Asignacion]:
     """Picking: FEFO en las zonas alistables del almacén, nunca de recepción,
     cuarentena ni despacho, y con la vida útil mínima que exige el cliente.
-    Puede quedar corto: lo que falta lo reporta quien llama."""
+
+    Si el producto tiene frentes de picking (y el almacén alista solo de
+    frentes), sale únicamente de sus frentes habilitados —el principal y los
+    alternos—; de la reserva solo si el almacén lo permite. La sala POS no se
+    alista (se reabastece). Si los frentes no alcanzan, pide un reabastecimiento
+    urgente. Puede quedar corto: lo que falta lo reporta quien llama."""
+    from app.core import wms_reabastecimiento as reab
+    frentes, reserva_si_falta, excluir_pos = await reab.reglas_picking(db, almacen_id, producto_id)
     filtro = [WMSZona.almacen_id == almacen_id, WMSZona.tipo.notin_(ZONAS_NO_ALISTABLES), WMSZona.activo.isnot(False)]
+    if excluir_pos:
+        filtro.append(WMSZona.vendible_pos.isnot(True))
     if lote_id:
         filtro.append(WMSInventarioUbicacion.lote_id == lote_id)
-    return await _asignar(db, producto_id, cantidad, filtro, True, date.today() + timedelta(days=dias_vida_minima))
+    minimo = date.today() + timedelta(days=dias_vida_minima)
+    if not frentes:
+        return await _asignar(db, producto_id, cantidad, filtro, True, minimo)
+    salida = await _asignar(db, producto_id, cantidad, [*filtro, WMSInventarioUbicacion.ubicacion_id.in_(frentes)], True, minimo)
+    faltan = _d(cantidad) - sum((_d(a.cantidad) for a in salida), Decimal(0))
+    if faltan > 0 and reserva_si_falta:
+        salida += await _asignar(db, producto_id, faltan, [*filtro, WMSInventarioUbicacion.ubicacion_id.notin_(frentes)], True, minimo)
+        faltan = _d(cantidad) - sum((_d(a.cantidad) for a in salida), Decimal(0))
+    if faltan > 0 and avisar_faltante:
+        await reab.urgente_por_picking(db, almacen_id, producto_id, float(faltan))
+    return salida
 
 
 async def multiplo_de_empaque(db: AsyncSession, producto_id: int, cantidad) -> Decimal:
@@ -330,7 +350,14 @@ async def asignar_por_empaque(db: AsyncSession, producto_id: int, almacen_id: in
     if m <= 1:
         return await asignar_alistamiento(db, producto_id, almacen_id, cantidad, lote_id, dias_vida_minima)
     # Todo lo disponible, en orden FEFO (queda bloqueado para esta transacción).
-    filas = await asignar_alistamiento(db, producto_id, almacen_id, Decimal(10) ** 9, lote_id, dias_vida_minima)
+    filas = await asignar_alistamiento(db, producto_id, almacen_id, Decimal(10) ** 9, lote_id, dias_vida_minima,
+                                       avisar_faltante=False)
+    total = sum((_d(f.cantidad) for f in filas), Decimal(0))
+    if total < _d(cantidad):
+        from app.core import wms_reabastecimiento as reab
+        frentes, _, _ = await reab.reglas_picking(db, almacen_id, producto_id)
+        if frentes:
+            await reab.urgente_por_picking(db, almacen_id, producto_id, float(_d(cantidad) - total))
     tomado = [Decimal(0)] * len(filas)
     faltan = _d(cantidad)
     for i, f in enumerate(filas):                       # 1) empaques completos

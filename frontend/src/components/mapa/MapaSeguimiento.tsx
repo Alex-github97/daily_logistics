@@ -19,6 +19,8 @@ interface Props {
   recorrido?: PuntoMapa[]
   /** Dónde está ahora. Es el punto que se resalta. */
   actual?: PuntoMapa | null
+  /** Entregas intermedias, en orden (las direcciones de compra). */
+  paradas?: (PuntoMapa & { numero?: number; hecha?: boolean })[]
   altura?: number | string
   color?: string
 }
@@ -59,7 +61,7 @@ const CAMION = (color: string) => `
 </div>`
 
 export function MapaSeguimiento({
-  origen, destino, recorrido = [], actual,
+  origen, destino, recorrido = [], actual, paradas = [],
   altura = 340, color = '#2563EB',
   marcaActual = 'punto', avancePct,
 }: Props) {
@@ -72,6 +74,7 @@ export function MapaSeguimiento({
     ...(origen ? [origen] : []),
     ...recorrido,
     ...(actual ? [actual] : []),
+    ...paradas,
     ...(destino ? [destino] : []),
   ].filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
 
@@ -95,6 +98,14 @@ export function MapaSeguimiento({
 
       const grupo = L.layerGroup()
 
+      // La ruta prevista (bodega → entregas → destino), tenue y punteada: es el
+      // orden de las paradas, no el camino por carretera.
+      const prevista = [...(origen ? [origen] : []), ...paradas, ...(destino ? [destino] : [])]
+        .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng)).map(p => [p.lat, p.lng])
+      if (prevista.length > 1) {
+        grupo.addLayer(L.polyline(prevista, { color: '#4F46E5', weight: 3, opacity: 0.55, dashArray: '7 7' }))
+      }
+
       const trazo = [...(origen ? [origen] : []), ...recorrido,
                      ...(actual ? [actual] : [])]
         .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))
@@ -112,18 +123,30 @@ export function MapaSeguimiento({
         }))
       }
 
-      if (origen) {
-        grupo.addLayer(L.circleMarker([origen.lat, origen.lng], {
-          radius: 7, color: '#fff', weight: 2,
-          fillColor: '#16A34A', fillOpacity: 1,
-        }).bindPopup(`Origen: ${origen.etiqueta ?? ''}`))
+      paradas.forEach((p, i) => {
+        const fondo = p.hecha ? '#16A34A' : '#fff', tinta = p.hecha ? '#fff' : '#0F172A'
+        grupo.addLayer(L.marker([p.lat, p.lng], {
+          icon: L.divIcon({
+            className: 'marca-vehiculo', iconSize: [24, 24], iconAnchor: [12, 12],
+            html: `<div style="width:24px;height:24px;border-radius:50%;background:${fondo};color:${tinta};border:2px solid #F59E0B;
+                    display:grid;place-items:center;font:700 11px Inter,Arial;box-shadow:0 1px 4px rgba(15,23,42,.35)">${p.numero ?? i + 1}</div>`,
+          }),
+        }).bindPopup(`Entrega ${p.numero ?? i + 1}: ${p.etiqueta ?? ''}`))
+      })
+      const pin = (p: PuntoMapa, fondo: string, letra: string, titulo: string) => {
+        grupo.addLayer(L.marker([p.lat, p.lng], {
+          zIndexOffset: 500,
+          icon: L.divIcon({
+            className: 'marca-vehiculo', iconSize: [30, 40], iconAnchor: [15, 39], tooltipAnchor: [0, -34],
+            html: `<svg width="30" height="40" viewBox="0 0 30 40" style="filter:drop-shadow(0 2px 3px rgba(15,23,42,.35))">
+              <path d="M15 1C7.3 1 1 7.2 1 14.9 1 25.3 15 39 15 39s14-13.7 14-24.1C29 7.2 22.7 1 15 1Z" fill="${fondo}" stroke="#fff" stroke-width="2"/>
+              <text x="15" y="19.5" text-anchor="middle" font-family="Inter,Arial" font-weight="800" font-size="12" fill="#fff">${letra}</text></svg>`,
+          }),
+        }).bindTooltip(`${titulo}${p.etiqueta ? ` · ${(p.etiqueta.split(' · ').pop() ?? '').slice(0, 38)}` : ''}`, { permanent: true, direction: 'top', className: 'rotulo-mapa' })
+          .bindPopup(`${titulo}: ${p.etiqueta ?? ''}`))
       }
-      if (destino) {
-        grupo.addLayer(L.circleMarker([destino.lat, destino.lng], {
-          radius: 7, color: '#fff', weight: 2,
-          fillColor: '#DC2626', fillOpacity: 1,
-        }).bindPopup(`Destino: ${destino.etiqueta ?? ''}`))
-      }
+      if (origen) pin(origen, '#16A34A', 'O', 'Origen')
+      if (destino) pin(destino, '#DC2626', 'D', 'Destino')
       if (actual) {
         const marca = marcaActual === 'camion'
           ? L.marker([actual.lat, actual.lng], {
@@ -170,7 +193,7 @@ export function MapaSeguimiento({
         <Typography sx={{ fontSize: 13 }}>
           {error
             ? 'No se pudo cargar el mapa. Revise la conexión.'
-            : 'Este viaje todavía no tiene posiciones reportadas.'}
+            : 'Este viaje aún no tiene puntos en el mapa: el origen (la bodega) y el destino (la dirección de compra) se ubican solos en unos minutos.'}
         </Typography>
       </Box>
     )
@@ -187,6 +210,7 @@ export function MapaSeguimiento({
         // diálogos de MUI. Bajarlos dentro del contenedor lo evita.
         '& .leaflet-pane, & .leaflet-control': { zIndex: 1 },
         '& .marca-vehiculo': { background: 'none', border: 'none' },
+        '& .rotulo-mapa': { fontSize: 11, fontWeight: 700, py: 0.25, px: 0.75, borderRadius: 1, boxShadow: '0 1px 3px rgba(15,23,42,.25)' },
         '@keyframes latido': {
           '0%':   { transform: 'scale(.85)', opacity: .35 },
           '70%':  { transform: 'scale(1.5)', opacity: 0 },

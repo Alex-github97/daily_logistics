@@ -35,6 +35,17 @@ import { mensajeDeError } from '@/utils/errorApi'
 import { aFecha } from '@/utils/fechas'
 const WMS_COLOR = COLOR_MODULO
 
+/** Historial: las más recientes y la búsqueda en el servidor. Traer todo el
+ *  historial con sus líneas eran más de 10 MB con unos miles de documentos. */
+const LIMITE_HISTORIAL = 500
+
+/** El texto de búsqueda, medio segundo después de que se deja de escribir. */
+function useRetardado(valor: string, ms = 450) {
+  const [v, setV] = useState(valor.trim())
+  React.useEffect(() => { const t = setTimeout(() => setV(valor.trim()), ms); return () => clearTimeout(t) }, [valor, ms])
+  return v
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Proveedor {
@@ -269,9 +280,10 @@ function OrdenesCompraTab() {
   const [eliminar, setEliminar] = useState<OrdenCompra | null>(null)
 
   // Queries
+  const busquedaOC = useRetardado(search)
   const { data: ordenes = [], isLoading } = useQuery<OrdenCompra[]>({
-    queryKey: ['wms-ordenes-compra'],
-    queryFn: () => api.get('/wms/ordenes-compra/').then((r) => r.data),
+    queryKey: ['wms-ordenes-compra', 'historial', busquedaOC],
+    queryFn: () => api.get('/wms/ordenes-compra/', { params: { limite: LIMITE_HISTORIAL, q: busquedaOC || undefined } }).then((r) => r.data),
   })
 
   const { data: proveedores = [] } = useQuery<Proveedor[]>({
@@ -918,14 +930,16 @@ function RecepcionesTab() {
   const [detalleRec, setDetalleRec] = useState<Recepcion | null>(null)
 
   // Queries
+  const busquedaRec = useRetardado(search)
   const { data: recepciones = [], isLoading } = useQuery<Recepcion[]>({
-    queryKey: ['wms-recepciones'],
-    queryFn: () => api.get('/wms/recepciones/').then((r) => r.data),
+    queryKey: ['wms-recepciones', busquedaRec],
+    queryFn: () => api.get('/wms/recepciones/', { params: { limite: LIMITE_HISTORIAL, q: busquedaRec || undefined } }).then((r) => r.data),
   })
 
+  // Para elegir la OC de una recepción: todas las que aún se pueden recibir.
   const { data: ordenesCompra = [] } = useQuery<OrdenCompra[]>({
-    queryKey: ['wms-ordenes-compra'],
-    queryFn: () => api.get('/wms/ordenes-compra/').then((r) => r.data),
+    queryKey: ['wms-ordenes-compra', 'recibibles'],
+    queryFn: () => api.get('/wms/ordenes-compra/', { params: { recibibles: true } }).then((r) => r.data),
   })
 
   const { data: almacenes = [] } = useQuery<Almacen[]>({

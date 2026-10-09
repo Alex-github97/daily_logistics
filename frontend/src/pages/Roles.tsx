@@ -12,6 +12,7 @@ import {
   Route, Description, VerifiedUser, Policy, School, Business,
   Construction, PrecisionManufacturing, BarChart, MonetizationOn, Remove,
   Security, EventAvailable, PointOfSale,
+  Groups,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
@@ -29,7 +30,7 @@ interface ModuleGroup {
   perms: PermDef[]
 }
 
-// Permisos de Daily Logistics: los tres módulos operativos y la configuración.
+// Permisos de Daily Logistics: los módulos operativos y la configuración.
 const MODULE_GROUPS: ModuleGroup[] = [
   {
     key: 'wms', label: 'Almacén WMS', abbr: 'WMS', color: '#4F46E5',
@@ -45,6 +46,11 @@ const MODULE_GROUPS: ModuleGroup[] = [
     key: 'pos', label: 'Punto de Venta', abbr: 'POS', color: '#7C3AED',
     Icon: PointOfSale,
     perms: [{ key: 'pos', label: 'Punto de venta: caja, turnos, ventas y configuración' }],
+  },
+  {
+    key: 'wfm', label: 'Personal WFM', abbr: 'WFM', color: '#0D9488',
+    Icon: Groups,
+    perms: [{ key: 'wfm', label: 'Personal: marcar jornada, mis tareas, estaciones, programación y productividad' }],
   },
   {
     key: 'config', label: 'Configuración', abbr: 'CFG', color: '#B91C1C',

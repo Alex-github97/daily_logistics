@@ -61,6 +61,16 @@ const WMSEmpaque = React.lazy(() => import('@/pages/WMSEmpaque'))
 const WMSMaquila = React.lazy(() => import('@/pages/WMSMaquila'))
 const WMSMapa = React.lazy(() => import('@/pages/WMSMapa'))
 const WMSConstructor = React.lazy(() => import('@/pages/WMSConstructor'))
+const WMSFrentes = React.lazy(() => import('@/pages/WMSFrentes'))
+const WMSConsolidacion = React.lazy(() => import('@/pages/WMSConsolidacion'))
+const TMSAsignacionCarga = React.lazy(() => import('@/pages/TMSAsignacionCarga'))
+const PersonalTablero = React.lazy(() => import('@/pages/personal/PersonalTablero'))
+const PersonalMiTurno = React.lazy(() => import('@/pages/personal/PersonalMiTurno'))
+const PersonalProgramacion = React.lazy(() => import('@/pages/personal/PersonalProgramacion'))
+const PersonalEstaciones = React.lazy(() => import('@/pages/personal/PersonalEstaciones'))
+const PersonalPersonas = React.lazy(() => import('@/pages/personal/PersonalPersonas'))
+const PersonalKiosco = React.lazy(() => import('@/pages/personal/PersonalKiosco'))
+const PersonalProductividad = React.lazy(() => import('@/pages/personal/PersonalProductividad'))
 const WMSFacturacion3PL = React.lazy(() => import('@/pages/WMSFacturacion3PL'))
 const WMSTraslados = React.lazy(() => import('@/pages/WMSTraslados'))
 const WMSVencimientos = React.lazy(() => import('@/pages/WMSVencimientos'))
@@ -225,6 +235,19 @@ export default function App() {
               <Route path="/wms/maquila" element={P(<WMSMaquila />)} />
               <Route path="/wms/mapa" element={P(<WMSMapa />)} />
               <Route path="/wms/constructor" element={P(<WMSConstructor />)} />
+              <Route path="/wms/frentes" element={P(<WMSFrentes />)} />
+              <Route path="/wms/consolidacion" element={P(<WMSConsolidacion />)} />
+              <Route path="/tms/asignacion-carga" element={P(<TMSAsignacionCarga />)} />
+              {/* WFM · Personal (las jornadas salieron del WMS: las rutas viejas redirigen) */}
+              <Route path="/wms/mi-jornada" element={<Navigate to="/personal/mi-turno" replace />} />
+              <Route path="/wms/jornadas" element={<Navigate to="/personal/productividad" replace />} />
+              <Route path="/personal" element={P(<PersonalTablero />)} />
+              <Route path="/personal/mi-turno" element={P(<PersonalMiTurno />)} />
+              <Route path="/personal/programacion" element={P(<PersonalProgramacion />)} />
+              <Route path="/personal/estaciones" element={P(<PersonalEstaciones />)} />
+              <Route path="/personal/personas" element={P(<PersonalPersonas />)} />
+              <Route path="/personal/kiosco" element={P(<PersonalKiosco />)} />
+              <Route path="/personal/productividad" element={P(<PersonalProductividad />)} />
               <Route path="/wms/facturacion" element={P(<WMSFacturacion3PL />)} />
               <Route path="/wms/traslados" element={P(<WMSTraslados />)} />
               <Route path="/wms/vencimientos" element={P(<WMSVencimientos />)} />

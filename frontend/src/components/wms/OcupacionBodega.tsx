@@ -17,6 +17,7 @@ import { TablaRegistros, Cifra } from '@/components/comun/Registro'
 import { cubicaje, dims } from '@/api/wmsCubicaje'
 import { wms, num } from '@/api/wmsTrazable'
 import { COLOR_MODULO } from '@/config/marca'
+import { BotonExportar } from '@/components/comun/HerramientasTabla'
 
 interface ZonaArea {
   zona: string; tipo: string; area_m2: number; ocupada_m2: number; libre_m2: number
@@ -44,6 +45,7 @@ export default function OcupacionBodega() {
   const d = res.data
   const filas = useMemo(() => (ocu.data ?? []).slice().sort((a, b) => (b.ocupacion_pct ?? -1) - (a.ocupacion_pct ?? -1)), [ocu.data])
   const zonas: ZonaArea[] = d?.area_por_zona ?? []
+  const nombreAlmacen = almacen === '' ? 'Todos los almacenes' : `Almacén: ${(almacenes.data ?? []).find(a => a.id === almacen)?.nombre ?? ''}`
 
   return (
     <>
@@ -61,7 +63,17 @@ export default function OcupacionBodega() {
         Los números son tan buenos como los datos: faltan medidas (frente y fondo) en ubicaciones o volumen en productos.
         Complételas en Configuración del WMS › Ubicaciones y en Cubicaje para que los m² y m³ sean reales.</Alert>}
 
-      <Typography fontWeight={700} mb={1}>Metros cuadrados por zona</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography fontWeight={700}>Metros cuadrados por zona</Typography>
+        <BotonExportar<ZonaArea> titulo="Ocupación por zona (m²)" archivo="ocupacion_zonas" obtenerFilas={() => zonas}
+          subtitulo={nombreAlmacen}
+          columnas={[
+            { titulo: 'Zona', valor: z => z.zona }, { titulo: 'Tipo', valor: z => z.tipo },
+            { titulo: 'Área (m²)', valor: z => z.area_m2 }, { titulo: 'Ocupada (m²)', valor: z => z.ocupada_m2 },
+            { titulo: 'Libre (m²)', valor: z => z.libre_m2 }, { titulo: 'Ocupación %', valor: z => z.ocupacion_pct },
+            { titulo: 'Huellas sin medidas', valor: z => z.huellas_sin_medidas },
+          ]} />
+      </Box>
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
         <Table size="small">
           <TableHead><TableRow>
@@ -86,8 +98,19 @@ export default function OcupacionBodega() {
         </Table>
       </TableContainer>
 
-      <Typography fontWeight={700} mb={1}>Detalle por ubicación</Typography>
-      <TablaRegistros filas={filas} cargando={ocu.isLoading} vacio="Sin ubicaciones" etiqueta={u => u.codigo}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography fontWeight={700}>Detalle por ubicación</Typography>
+        <BotonExportar<typeof filas[number]> titulo="Ocupación por ubicación" archivo="ocupacion_ubicaciones" obtenerFilas={() => filas}
+          subtitulo={nombreAlmacen}
+          columnas={[
+            { titulo: 'Ubicación', valor: u => u.codigo }, { titulo: 'Zona', valor: u => u.zona },
+            { titulo: 'Largo (cm)', valor: u => u.largo_cm }, { titulo: 'Ancho (cm)', valor: u => u.ancho_cm }, { titulo: 'Alto (cm)', valor: u => u.alto_cm },
+            { titulo: 'Piso (m²)', valor: u => (u as any).area_m2 }, { titulo: 'Capacidad (m³)', valor: u => u.capacidad_m3 },
+            { titulo: 'Ocupado (m³)', valor: u => u.ocupado_m3 }, { titulo: 'Ocupación %', valor: u => u.ocupacion_pct },
+            { titulo: 'SKU', valor: u => u.skus }, { titulo: 'Unidades sin volumen', valor: u => u.unidades_sin_volumen },
+          ]} />
+      </Box>
+      <TablaRegistros paginar={100} filas={filas} cargando={ocu.isLoading} vacio="Sin ubicaciones" etiqueta={u => u.codigo}
         columnas={[
           { titulo: 'Ubicación', valor: u => <Typography fontFamily="monospace" fontWeight={700}>{u.codigo}</Typography> },
           { titulo: 'Zona', valor: u => u.zona }, { titulo: 'Medidas', valor: u => dims(u.largo_cm, u.ancho_cm, u.alto_cm) },

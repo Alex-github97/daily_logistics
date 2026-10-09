@@ -23,6 +23,9 @@ from app.infrastructure.models.flota import (
     FlotaRutinaDetalleRepuesto, FlotaSecuenciaMantenimiento, FlotaSecuenciaRutina,
     FlotaGrupoVehiculo, FlotaAsignacionSecuencia, FlotaModoFalla, FlotaUmbralCBM,
 )
+from app.infrastructure.models.personal import (
+    PerEstacion, PerPerfil, PerProgramacion, PerJornada, PerJornadaPausa, PerJornadaTramo,
+)
 from app.infrastructure.models.wms import (
     WMSAlmacen, WMSZona, WMSUbicacion, WMSProducto, WMSLote, WMSSerie,
     WMSProveedor, WMSCliente, WMSTransportadora,

@@ -8,6 +8,11 @@
  * y de ahí salen las ubicaciones del WMS (botón «Generar ubicaciones», con
  * simulación previa) y la bodega 3D.
  *
+ * Formas reales: el contorno de la bodega, los muros en polilínea y las áreas
+ * de forma libre se trazan punto a punto (Shift: ángulos de 45°; escriba un
+ * largo y Enter para un tramo exacto); cada tramo se curva arrastrando su punto
+ * medio y los vértices se mueven, se agregan o se quitan con doble clic.
+ *
  * Atajos: V seleccionar · H mano · M medir · R rotar 90° · Supr eliminar ·
  * Ctrl+D duplicar · Ctrl+C / Ctrl+V · Ctrl+Z / Ctrl+Y · Ctrl+A · Ctrl+S guardar ·
  * flechas mover (Shift = 1 m) · F encuadrar · Espacio + arrastrar = desplazar ·
@@ -25,27 +30,33 @@ import {
   GridOn, Save, AutoFixHigh, ViewInAr, Fullscreen, FullscreenExit, AlignHorizontalLeft, AlignHorizontalCenter,
   AlignHorizontalRight, AlignVerticalTop, AlignVerticalCenter, AlignVerticalBottom, ViewColumn as HorizontalDistribute,
   TableRows as VerticalDistribute, CalendarViewWeek, CloudDownload, Search, Layers, Tune, Close, WarningAmber, CheckCircle,
-  SquareFoot,
+  SquareFoot, Timeline, FormatShapes, Fence, EditLocationAlt, Add,
 } from '@mui/icons-material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { TextField } from '@/components/comun/Desplegables'
 import { errorApi } from '@/components/comun/Registro'
 import { apiClient as api } from '@/api/client'
+import {
+  area as areaPol, cajaDe, dentro, distPolilinea, flechaPor, largoTramo, medioTramo, muestrear, partirTramo, pathSvg, perimetro,
+  seCruzan, type Pt, type XY,
+} from './geometria'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Modelo
 // ═════════════════════════════════════════════════════════════════════════════
-type Tipo = 'SELECTIVO' | 'GONDOLA' | 'CANTILEVER' | 'PISO' | 'ZONA' | 'MURO' | 'COLUMNA'
+type Tipo = 'SELECTIVO' | 'GONDOLA' | 'CANTILEVER' | 'PISO' | 'ZONA' | 'MURO' | 'COLUMNA' | 'POLIMURO' | 'POLIZONA'
+interface Forma { puntos: Pt[]; cerrado: boolean }
 interface El {
   clave: string; id?: number; tipo: Tipo; nombre: string | null; pasillo: string | null; estanteria: string | null
   zona_id: number | null; ubicacion_id: number | null; foto_id: number | null; categoria: string | null; color: string | null
   x_m: number; y_m: number; rotacion: number; modulos: number; por_modulo: number; niveles: number
   frente_cm: number; fondo_cm: number; alto_nivel_cm: number; capacidad_kg: number | null; largo_m: number | null; ancho_m: number | null
+  forma?: Forma | null
   // del servidor (solo lectura)
   vinculadas?: number; ocupadas?: number; ocupacion_pct?: number | null; codigos?: string[]; sobrantes?: number
 }
-interface Config { ancho_m: number; largo_m: number; escala_m_px: number | null; plano_x_m: number; plano_y_m: number; patron_codigo: string }
+interface Config { ancho_m: number; largo_m: number; escala_m_px: number | null; plano_x_m: number; plano_y_m: number; patron_codigo: string; contorno?: Pt[] | null }
 interface Datos {
   almacen: { id: number; codigo: string; nombre: string }
   config: Config | null; elementos: (Omit<El, 'clave'> & { id: number })[]
@@ -69,13 +80,19 @@ const CATALOGO: Record<Tipo, { nombre: string; desc: string; base: Partial<El> }
   ZONA: { nombre: 'Área', desc: 'Recepción, despacho, staging…', base: { largo_m: 10, ancho_m: 6, categoria: 'RECEPCION' } },
   MURO: { nombre: 'Muro', desc: 'Cerramientos y divisiones', base: { largo_m: 10, ancho_m: 0.3 } },
   COLUMNA: { nombre: 'Columna', desc: 'Estructura del edificio', base: { largo_m: 0.5, ancho_m: 0.5 } },
+  POLIMURO: { nombre: 'Muro en trazo', desc: 'Polilínea con tramos rectos o curvos', base: { fondo_cm: 20 } },
+  POLIZONA: { nombre: 'Área libre', desc: 'Forma libre: en L, curva, no transitable', base: { categoria: 'OTRA' } },
 }
+const FORMAS: Tipo[] = ['POLIMURO', 'POLIZONA']
+const esForma = (e: El) => FORMAS.includes(e.tipo)
+const cerradaDe = (e: El) => e.tipo === 'POLIZONA' || !!e.forma?.cerrado
 const AREAS: Record<string, { nombre: string; color: string }> = {
   RECEPCION: { nombre: 'Recepción', color: '#F59E0B' }, DESPACHO: { nombre: 'Despacho', color: '#10B981' },
   STAGING: { nombre: 'Staging', color: '#06B6D4' }, CUARENTENA: { nombre: 'Cuarentena', color: '#EF4444' },
   SALA_VENTAS: { nombre: 'Sala de ventas', color: '#8B5CF6' }, MUELLE: { nombre: 'Muelle', color: '#64748B' },
   PASILLO: { nombre: 'Pasillo / vía', color: '#EAB308' }, OFICINAS: { nombre: 'Oficinas', color: '#94A3B8' },
   SERVICIOS: { nombre: 'Servicios', color: '#A8A29E' }, OTRA: { nombre: 'Otra', color: '#3B82F6' },
+  NO_TRANSITABLE: { nombre: 'No transitable', color: '#64748B' },
 }
 
 const rad = (g: number) => (g * Math.PI) / 180
@@ -104,16 +121,43 @@ function caja(e: El) {
 }
 function contiene(e: El, wx: number, wy: number, holgura = 0) {
   const [L, F] = dims(e), [lx, ly] = aLocal(e, wx, wy)
+  if (esForma(e) && e.forma?.puntos.length) {
+    const linea = muestrear(e.forma.puntos, cerradaDe(e))
+    if (e.tipo === 'POLIZONA') return dentro(linea, lx, ly) || distPolilinea(linea, lx, ly, true) <= holgura
+    return distPolilinea(linea, lx, ly, cerradaDe(e)) <= e.fondo_cm / 200 + holgura
+  }
   return Math.abs(lx) <= L / 2 + holgura && Math.abs(ly) <= F / 2 + holgura
+}
+const r3 = (n: number) => Math.round(n * 1000) / 1000
+/** Vértices en coordenadas del piso (con su curva). */
+function verticesMundo(e: El): Pt[] {
+  return (e.forma?.puntos ?? []).map(p => { const [x, y] = aMundo(e, p.x, p.y); return { x, y, s: p.s ?? 0 } })
+}
+/** Recalcula centro y caja de una forma (el dibujo no se mueve). */
+function recentrar(e: El): El {
+  if (!e.forma?.puntos.length) return e
+  const b = cajaDe(muestrear(e.forma.puntos, cerradaDe(e)))
+  const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2
+  const [wx, wy] = aMundo(e, cx, cy)
+  return { ...e, x_m: r3(wx), y_m: r3(wy), largo_m: Math.max(0.1, r2(b.x1 - b.x0)), ancho_m: Math.max(0.1, r2(b.y1 - b.y0)),
+    forma: { ...e.forma, puntos: e.forma.puntos.map(p => ({ ...p, x: r3(p.x - cx), y: r3(p.y - cy) })) } }
+}
+/** Pone vértices del piso en la forma (pasándolos a sus coordenadas locales). */
+function conVerticesMundo(e: El, pts: Pt[]): El {
+  return recentrar({ ...e, forma: { cerrado: e.forma?.cerrado ?? false, puntos: pts.map(p => { const [x, y] = aLocal(e, p.x, p.y); return { x, y, s: p.s ?? 0 } }) } })
+}
+function esquinasMundo(e: El): XY[] {
+  const [L, F] = dims(e)
+  return [[-L / 2, -F / 2], [L / 2, -F / 2], [L / 2, F / 2], [-L / 2, F / 2]].map(([x, y]) => aMundo(e, x, y))
 }
 const posicionesDe = (e: El) => (esEstructura(e) ? e.modulos * e.por_modulo * (e.tipo === 'PISO' ? 1 : e.niveles) : 0)
 const nombreDe = (e: El) => e.nombre || (esEstructura(e) ? [e.pasillo, e.estanteria].filter(Boolean).join('-') : CATALOGO[e.tipo].nombre) || CATALOGO[e.tipo].nombre
-const ORDEN_DIBUJO: Record<Tipo, number> = { ZONA: 0, PISO: 1, MURO: 2, COLUMNA: 3, CANTILEVER: 4, GONDOLA: 5, SELECTIVO: 6 }
+const ORDEN_DIBUJO: Record<Tipo, number> = { POLIZONA: 0, ZONA: 0, PISO: 1, POLIMURO: 2, MURO: 2, COLUMNA: 3, CANTILEVER: 4, GONDOLA: 5, SELECTIVO: 6 }
 
 function colorDe(e: El, indice: Map<string, number>): string {
   if (e.color) return e.color
-  if (e.tipo === 'ZONA') return AREAS[e.categoria ?? 'OTRA']?.color ?? AREAS.OTRA.color
-  if (e.tipo === 'MURO') return '#475569'
+  if (e.tipo === 'ZONA' || e.tipo === 'POLIZONA') return AREAS[e.categoria ?? 'OTRA']?.color ?? AREAS.OTRA.color
+  if (e.tipo === 'MURO' || e.tipo === 'POLIMURO') return '#475569'
   if (e.tipo === 'COLUMNA') return '#334155'
   return PALETA[(indice.get(e.clave) ?? 0) % PALETA.length]
 }
@@ -179,6 +223,12 @@ function IconoTipo({ tipo, size = 44 }: { tipo: Tipo; size?: number }) {
       <line x1={10} y1={13} x2={30} y2={13} stroke="#B45309" strokeWidth={2} /><line x1={10} y1={19} x2={23} y2={19} stroke="#D97706" strokeWidth={1.6} opacity={0.7} /></svg>
     case 'MURO': return <svg viewBox="0 0 44 32" style={s}>
       <path d="M5 26 V7 H39 V26" {...comun} stroke="#475569" strokeWidth={4.5} /><path d="M17 26 v-8 h10 v8" {...comun} stroke="#CBD5E1" strokeWidth={1.4} /></svg>
+    case 'POLIMURO': return <svg viewBox="0 0 44 32" style={s}>
+      <path d="M5 27 L5 10 Q5 5 10 5 L26 5 Q39 5 39 18 L39 27" {...comun} stroke="#475569" strokeWidth={3.6} />
+      {[[5, 27], [5, 10], [26, 5], [39, 27]].map(([x, y], i) => <rect key={i} x={x - 2} y={y - 2} width={4} height={4} fill="#fff" stroke="#4F46E5" strokeWidth={1.2} />)}</svg>
+    case 'POLIZONA': return <svg viewBox="0 0 44 32" style={s}>
+      <path d="M5 5 H26 V14 Q39 14 39 27 H5 Z" fill="#3B82F6" fillOpacity={0.15} stroke="#3B82F6" strokeWidth={1.8} strokeDasharray="4 2.5" />
+      {[[5, 5], [26, 5], [26, 14], [39, 27], [5, 27]].map(([x, y], i) => <rect key={i} x={x - 2} y={y - 2} width={4} height={4} fill="#fff" stroke="#4F46E5" strokeWidth={1.2} />)}</svg>
     case 'COLUMNA': return <svg viewBox="0 0 44 32" style={s}>
       {[[9, 7], [29, 7], [9, 21], [29, 21]].map(([x, y], i) => <rect key={i} x={x} y={y} width={5} height={5} fill="#334155" />)}
       <rect x={4} y={3} width={36} height={26} rx={1.5} {...comun} stroke="#CBD5E1" strokeDasharray="2 2" /></svg>
@@ -250,7 +300,8 @@ const Separador = () => <Divider orientation="vertical" flexItem sx={{ mx: 0.75,
 // ═════════════════════════════════════════════════════════════════════════════
 // Constructor
 // ═════════════════════════════════════════════════════════════════════════════
-type Modo = 'seleccionar' | 'mano' | 'medir' | 'calibrar' | `colocar:${Tipo}`
+type Trazo = 'CONTORNO' | 'POLIMURO' | 'POLIZONA'
+type Modo = 'seleccionar' | 'mano' | 'medir' | 'calibrar' | `colocar:${Tipo}` | `trazar:${Trazo}`
 type Arrastre =
   | { tipo: 'pan'; sx: number; sy: number; pan0: { x: number; y: number } }
   | { tipo: 'mover'; wx: number; wy: number; origen: Map<string, [number, number]>; primero: string; antes: Snap; movido: boolean }
@@ -258,6 +309,8 @@ type Arrastre =
   | { tipo: 'rotar'; clave: string; antes: Snap }
   | { tipo: 'estirar'; clave: string; esquina: [number, number]; orig: El; antes: Snap }
   | { tipo: 'regla'; a: [number, number]; b: [number, number] }
+  | { tipo: 'vertice'; destino: string; i: number; antes: Snap }
+  | { tipo: 'curva'; destino: string; i: number; antes: Snap }
 interface Snap { els: El[]; config: Config }
 
 const REGLA = 24
@@ -295,6 +348,12 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
   const [completa, setCompleta] = useState(false)
   const [buscar, setBuscar] = useState('')
   const espacio = useRef(false)
+  // ── trazado de formas ──
+  const [trazo, setTrazo] = useState<XY[]>([])
+  const [bufferLargo, setBufferLargo] = useState('')
+  const [previa, setPrevia] = useState<XY | null>(null)
+  const [enganche, setEnganche] = useState<XY | null>(null)
+  const [editarContorno, setEditarContorno] = useState(false)
 
   // ── diálogos ──
   const [serie, setSerie] = useState<{ cantidad: number; modo: 'espalda' | 'simple'; pasillo: number; espalda: number; direccion: 1 | -1; numerar: 'estanteria' | 'pasillo' } | null>(null)
@@ -389,6 +448,25 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     }
   }, [els])
 
+  const contornoPol = useMemo(() => (config.contorno?.length ?? 0) >= 3 ? muestrear(config.contorno!, true) : null, [config.contorno])
+  const areaPiso = contornoPol ? areaPol(contornoPol) : config.ancho_m * config.largo_m
+  /** Estanterías fuera del contorno, sobre un muro o en un área no transitable. */
+  const avisos = useMemo(() => {
+    const m = new Map<string, string[]>()
+    const muros = els.filter(o => o.tipo === 'POLIMURO' || o.tipo === 'MURO' || o.tipo === 'COLUMNA')
+      .map(o => o.tipo === 'POLIMURO' ? { lin: muestrear(verticesMundo(o), cerradaDe(o)), cerr: cerradaDe(o), o } : { lin: esquinasMundo(o), cerr: true, o })
+    const vetadas = els.filter(o => o.tipo === 'POLIZONA' && o.categoria === 'NO_TRANSITABLE').map(o => muestrear(verticesMundo(o), true))
+    for (const e of els.filter(esEstructura)) {
+      const esq = esquinasMundo(e), lista: string[] = []
+      if (contornoPol && esq.some(([x, y]) => !dentro(contornoPol, x, y))) lista.push('Queda fuera del contorno de la bodega')
+      if (muros.some(w => seCruzan(esq, true, w.lin, w.cerr) || (w.cerr && w.o.tipo !== 'POLIMURO' && esq.some(([x, y]) => dentro(w.lin, x, y)))))
+        lista.push('Choca con un muro o una columna')
+      if (vetadas.some(z => esq.some(([x, y]) => dentro(z, x, y)) || seCruzan(esq, true, z, true))) lista.push('Está sobre un área no transitable')
+      if (lista.length) m.set(e.clave, lista)
+    }
+    return m
+  }, [els, contornoPol])
+
   // ── coordenadas ──
   const aMundoPx = (sx: number, sy: number): [number, number] => [(sx - pan.x) / zoom, (sy - pan.y) / zoom]
   const aPantalla = (wx: number, wy: number): [number, number] => [wx * zoom + pan.x, wy * zoom + pan.y]
@@ -467,6 +545,89 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     return { dx: mejorX?.d ?? 0, dy: mejorY?.d ?? 0, gx: mejorX?.v, gy: mejorY?.v }
   }
 
+  // ── imán de puntos: vértices y esquinas, ángulos de 45° (Shift) y rejilla ──
+  const imanPunto = (wx: number, wy: number, alt: boolean, shift: boolean, desde?: XY | null, excluir?: { destino: string; i: number }) => {
+    const tol = 10 / zoom
+    let mejor: { d: number; p: XY } | null = null
+    const probar = (p: XY) => { const dd = Math.hypot(p[0] - wx, p[1] - wy); if (dd < tol && (!mejor || dd < mejor.d)) mejor = { d: dd, p } }
+    if (!alt) {
+      ;(config.contorno ?? []).forEach((q, i) => { if (!(excluir?.destino === '__contorno' && excluir.i === i)) probar([q.x, q.y]) })
+      for (const e of els) {
+        if (esForma(e)) verticesMundo(e).forEach((q, i) => { if (!(excluir?.destino === e.clave && excluir.i === i)) probar([q.x, q.y]) })
+        else esquinasMundo(e).forEach(probar)
+      }
+      trazo.forEach(q => probar(q))
+    }
+    if (mejor) return { p: (mejor as { p: XY }).p, enganchado: true }
+    if (shift && desde) {
+      const ang = Math.round(Math.atan2(wy - desde[1], wx - desde[0]) / (Math.PI / 4)) * (Math.PI / 4)
+      const largo = Math.hypot(wx - desde[0], wy - desde[1])
+      const l = iman && !alt ? Math.round(largo / paso) * paso : largo
+      return { p: [r3(desde[0] + Math.cos(ang) * l), r3(desde[1] + Math.sin(ang) * l)] as XY, enganchado: false }
+    }
+    return { p: [r3(ajustar(wx, alt)), r3(ajustar(wy, alt))] as XY, enganchado: false }
+  }
+
+  // ── trazos: contorno, muro en polilínea, área libre ──
+  const cancelarTrazo = () => { setTrazo([]); setBufferLargo(''); setPrevia(null); setEnganche(null); setModo('seleccionar') }
+  const ajustarPisoA = (c: Config): Config => {
+    if (!c.contorno?.length) return c
+    const b = cajaDe(muestrear(c.contorno, true))
+    return { ...c, ancho_m: Math.max(c.ancho_m, r2(b.x1 + 1)), largo_m: Math.max(c.largo_m, r2(b.y1 + 1)) }
+  }
+  const finalizarTrazo = (cerrar: boolean, extra?: XY) => {
+    const tipo = modo.split(':')[1] as Trazo
+    const pts: XY[] = []
+    for (const q of [...trazo, ...(extra ? [extra] : [])]) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 1e-6) pts.push(q)
+    const minimo = tipo === 'POLIMURO' ? 2 : 3
+    if (pts.length < minimo) { toast.error(`Hacen falta al menos ${minimo} puntos`); return }
+    if (tipo === 'CONTORNO') {
+      registrar()
+      setConfig(c => ajustarPisoA({ ...c, contorno: pts.map(([x, y]) => ({ x: Math.max(0, r2(x)), y: Math.max(0, r2(y)), s: 0 })) }))
+      setEditarContorno(true); setSel(new Set())
+      toast.success(`Contorno de ${pts.length} puntos: arrastre los puntos medios para curvar tramos`)
+    } else {
+      const b = cajaDe(pts), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2
+      const base = plantilla(tipo, cx, cy)
+      const e = recentrar({ ...base, nombre: tipo === 'POLIMURO' ? 'Muro' : 'Área', fondo_cm: tipo === 'POLIMURO' ? 20 : base.fondo_cm,
+        forma: { cerrado: tipo === 'POLIZONA' || cerrar, puntos: pts.map(([x, y]) => ({ x: x - cx, y: y - cy, s: 0 })) } })
+      registrar(); setEls(prev => [...prev, e]); setSel(new Set([e.clave]))
+    }
+    setTrazo([]); setBufferLargo(''); setPrevia(null); setEnganche(null); setModo('seleccionar')
+  }
+  /** Cambia los vértices (en coordenadas del piso) del contorno o de una forma. */
+  const actualizarPuntos = (destino: string, fn: (pts: Pt[]) => Pt[]) => {
+    setSucio(true)
+    if (destino === '__contorno') setConfig(c => ({ ...c, contorno: fn(c.contorno ?? []).map(q => ({ ...q, x: Math.max(0, q.x), y: Math.max(0, q.y) })) }))
+    else setEls(prev => prev.map(e => e.clave === destino ? conVerticesMundo(e, fn(verticesMundo(e))) : e))
+  }
+  const puntosDe = (destino: string): { pts: Pt[]; cerrado: boolean } => destino === '__contorno'
+    ? { pts: config.contorno ?? [], cerrado: true }
+    : (() => { const e = els.find(x => x.clave === destino); return { pts: e ? verticesMundo(e) : [], cerrado: e ? cerradaDe(e) : false } })()
+  const quitarVertice = (destino: string, i: number) => {
+    const { pts, cerrado } = puntosDe(destino)
+    if (pts.length <= (cerrado ? 3 : 2)) { toast.error('No se puede: la forma quedaría sin puntos suficientes'); return }
+    registrar(); actualizarPuntos(destino, ps => ps.filter((_, j) => j !== i))
+  }
+  const insertarVertice = (destino: string, i: number) => {
+    registrar()
+    actualizarPuntos(destino, ps => {
+      const a = ps[i], b = ps[(i + 1) % ps.length]
+      const [s1, m, s2] = partirTramo([a.x, a.y], [b.x, b.y], a.s ?? 0)
+      const out = ps.map((q, j) => j === i ? { ...q, s: r3(s1) } : q)
+      out.splice(i + 1, 0, { x: r3(m[0]), y: r3(m[1]), s: r3(s2) })
+      return out
+    })
+  }
+  const empezarVertice = (ev: React.PointerEvent, destino: string, i: number) => {
+    ev.stopPropagation(); (ev.target as Element).setPointerCapture?.(ev.pointerId)
+    setArrastre({ tipo: 'vertice', destino, i, antes: instantanea() })
+  }
+  const empezarCurva = (ev: React.PointerEvent, destino: string, i: number) => {
+    ev.stopPropagation(); (ev.target as Element).setPointerCapture?.(ev.pointerId)
+    setArrastre({ tipo: 'curva', destino, i, antes: instantanea() })
+  }
+
   // ── punteros ──
   const abajo = (ev: React.PointerEvent) => {
     raiz.current?.focus({ preventScroll: true })
@@ -476,6 +637,14 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
       setArrastre({ tipo: 'pan', sx, sy, pan0: pan }); return
     }
     if (modo === 'medir' || modo === 'calibrar') { setArrastre({ tipo: 'regla', a: [wx, wy], b: [wx, wy] }); return }
+    if (modo.startsWith('trazar:')) {
+      if (ev.button !== 0) return
+      const r = imanPunto(wx, wy, ev.altKey, ev.shiftKey, trazo[trazo.length - 1])
+      const minimo = modo === 'trazar:POLIMURO' ? 2 : 3
+      if (trazo.length >= minimo && Math.hypot(r.p[0] - trazo[0][0], r.p[1] - trazo[0][1]) * zoom < 10) { finalizarTrazo(true); return }
+      setTrazo(t => [...t, r.p]); setBufferLargo('')
+      return
+    }
     if (modo.startsWith('colocar:')) {
       const tipo = modo.split(':')[1] as Tipo
       const nuevo = colocarEn(plantilla(tipo, wx, wy), ev.altKey)
@@ -502,7 +671,28 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     const [sx, sy] = puntoEvento(ev), [wx, wy] = aMundoPx(sx, sy)
     setCursor([wx, wy])
     const a = arrastre
+    if (modo.startsWith('trazar:') && (!a || a.tipo !== 'pan')) {
+      const r = imanPunto(wx, wy, ev.altKey, ev.shiftKey, trazo[trazo.length - 1])
+      setPrevia(r.p); setEnganche(r.enganchado ? r.p : null)
+    }
     if (!a) return
+    if (a.tipo === 'vertice') {
+      const { pts } = puntosDe(a.destino)
+      const previo = pts.length ? pts[(a.i - 1 + pts.length) % pts.length] : null
+      const r = imanPunto(wx, wy, ev.altKey, ev.shiftKey, previo ? [previo.x, previo.y] : null, { destino: a.destino, i: a.i })
+      setEnganche(r.enganchado ? r.p : null)
+      actualizarPuntos(a.destino, ps => ps.map((q, j) => j === a.i ? { ...q, x: r.p[0], y: r.p[1] } : q))
+      return
+    }
+    if (a.tipo === 'curva') {
+      actualizarPuntos(a.destino, ps => {
+        const A = ps[a.i], B = ps[(a.i + 1) % ps.length]
+        let f = flechaPor([A.x, A.y], [B.x, B.y], [wx, wy])
+        if (Math.abs(f) * zoom < 6) f = 0
+        return ps.map((q, j) => j === a.i ? { ...q, s: r3(f) } : q)
+      })
+      return
+    }
     if (a.tipo === 'pan') { setPan({ x: a.pan0.x + sx - a.sx, y: a.pan0.y + sy - a.sy }); return }
     if (a.tipo === 'regla') { setArrastre({ ...a, b: [wx, wy] }); return }
     if (a.tipo === 'marco') { setArrastre({ ...a, cx: wx, cy: wy }); return }
@@ -555,6 +745,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     if (!a) return
     if (a.tipo === 'mover' && a.movido) registrar(a.antes)
     if (a.tipo === 'rotar' || a.tipo === 'estirar') registrar(a.antes)
+    if (a.tipo === 'vertice' || a.tipo === 'curva') { registrar(a.antes); setEnganche(null); if (a.destino === '__contorno') setConfig(ajustarPisoA) }
     if (a.tipo === 'marco') {
       const x0 = Math.min(a.wx, a.cx), x1 = Math.max(a.wx, a.cx), y0 = Math.min(a.wy, a.cy), y1 = Math.max(a.wy, a.cy)
       if ((x1 - x0) * zoom < 3 && (y1 - y0) * zoom < 3) return
@@ -691,6 +882,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
           ubicacion_id: e.ubicacion_id, foto_id: e.foto_id, categoria: e.categoria, color: e.color, x_m: e.x_m, y_m: e.y_m, rotacion: e.rotacion,
           modulos: e.modulos, por_modulo: e.por_modulo, niveles: e.niveles, frente_cm: e.frente_cm, fondo_cm: e.fondo_cm,
           alto_nivel_cm: e.alto_nivel_cm, capacidad_kg: e.capacidad_kg, largo_m: e.largo_m, ancho_m: e.ancho_m,
+          forma: esForma(e) ? e.forma : null,
         })),
       }
       const r = await api.put('/wms/layout', cuerpo, { params: { almacen_id: almacen } }).then(x => x.data)
@@ -705,7 +897,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
       pasado.current = pasado.current.map(s => ({ ...s, els: conId(s.els) }))
       futuro.current = futuro.current.map(s => ({ ...s, els: conId(s.els) }))
       setSucio(false)
-      qc.invalidateQueries({ queryKey: ['mapa-3d'] })
+      qc.invalidateQueries({ queryKey: ['mapa-3d'] }); qc.invalidateQueries({ queryKey: ['layout-estructuras'] }); qc.invalidateQueries({ queryKey: ['estructura-estado'] })
       toast.success(r.desactivadas ? `Layout guardado · ${r.desactivadas} ubicaciones vacías desactivadas` : 'Layout guardado')
       return true
     } catch (e) { toast.error(errorApi(e)); return false } finally { setGuardando(false) }
@@ -727,7 +919,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
       setGenerar(null)
       cargado.current = null
       await qc.invalidateQueries({ queryKey: ['wms-layout', almacen] })
-      qc.invalidateQueries({ queryKey: ['mapa-3d'] })
+      qc.invalidateQueries({ queryKey: ['mapa-3d'] }); qc.invalidateQueries({ queryKey: ['layout-estructuras'] }); qc.invalidateQueries({ queryKey: ['estructura-estado'] })
     } catch (e) { toast.error(errorApi(e)); setGenerar(g => g && { ...g, cargando: false }) }
   }
   const importar = async () => {
@@ -745,6 +937,21 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     const k = ev.key.toLowerCase(), ctrl = ev.ctrlKey || ev.metaKey
     const hecho = () => { ev.preventDefault(); ev.stopPropagation() }
     if (k === ' ') { espacio.current = true; hecho(); return }
+    if (modo.startsWith('trazar:') && !ctrl) {
+      if (/^[0-9]$/.test(ev.key) || ev.key === '.' || ev.key === ',') { setBufferLargo(b => (b + (ev.key === ',' ? '.' : ev.key)).slice(0, 8)); return hecho() }
+      if (k === 'backspace' || k === 'delete') { if (bufferLargo) setBufferLargo(b => b.slice(0, -1)); else setTrazo(t => t.slice(0, -1)); return hecho() }
+      if (k === 'escape') { cancelarTrazo(); return hecho() }
+      if (k === 'enter') {
+        const l = Number(bufferLargo)
+        if (bufferLargo && l > 0 && trazo.length) {
+          const ult = trazo[trazo.length - 1], hacia = previa ?? cursor ?? [ult[0] + 1, ult[1]]
+          const dx = hacia[0] - ult[0], dy = hacia[1] - ult[1], n = Math.hypot(dx, dy) || 1
+          setTrazo(t => [...t, [r3(ult[0] + (dx / n) * l), r3(ult[1] + (dy / n) * l)]]); setBufferLargo('')
+        } else finalizarTrazo(false)
+        return hecho()
+      }
+    }
+    if (k === 'escape' && editarContorno) { setEditarContorno(false); return hecho() }
     if (ctrl && k === 'z' && !ev.shiftKey) { deshacer(); return hecho() }
     if (ctrl && (k === 'y' || (k === 'z' && ev.shiftKey))) { rehacer(); return hecho() }
     if (ctrl && k === 'd') { duplicar(); return hecho() }
@@ -803,6 +1010,18 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
     const marcada = sel.has(e.clave)
     const op = opciones.fantasma ? 0.55 : 1
     const partes: React.ReactNode[] = []
+    if (esForma(e) && e.forma?.puntos.length) {
+      const d0 = pathSvg(muestrear(e.forma.puntos, cerradaDe(e)), cerradaDe(e))
+      const veto = e.categoria === 'NO_TRANSITABLE'
+      return (
+        <g key={e.clave + (opciones.fantasma ? 'g' : '')} transform={`translate(${e.x_m} ${e.y_m}) rotate(${e.rotacion})`} opacity={op} style={{ pointerEvents: 'none' }}>
+          {e.tipo === 'POLIZONA'
+            ? <path d={d0} fill={veto ? 'url(#rayadoVeto)' : color} fillOpacity={veto ? 1 : 0.13} stroke={color} strokeWidth={1.6} strokeDasharray={veto ? undefined : '7 4'} {...sw} />
+            : <path d={d0} fill="none" stroke={color} strokeWidth={Math.max(0.05, e.fondo_cm / 100)} strokeLinejoin="round" strokeLinecap="square" />}
+          {marcada && <path d={d0} fill="none" stroke={ACENTO} strokeWidth={1.5} strokeDasharray="5 3" {...sw} />}
+        </g>
+      )
+    }
     if (e.tipo === 'ZONA') {
       partes.push(<rect key="f" x={-L / 2} y={-F / 2} width={L} height={F} rx={Math.min(0.4, L / 10)} fill={color} fillOpacity={0.12}
         stroke={color} strokeWidth={1.6} strokeDasharray="7 4" {...sw} />)
@@ -888,6 +1107,11 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
         <Herramienta titulo="Medir distancias" atajo="M" activo={modo === 'medir'} onClick={() => setModo('medir')}><Straighten fontSize="small" /></Herramienta>
         <Herramienta titulo="Calibrar la escala del plano (trace una medida conocida)" activo={modo === 'calibrar'} disabled={!d.plano} onClick={() => setModo('calibrar')}><SquareFoot fontSize="small" /></Herramienta>
         <Separador />
+        <Herramienta titulo="Dibujar el contorno de la bodega" activo={modo === 'trazar:CONTORNO'} onClick={() => { setTrazo([]); setModo('trazar:CONTORNO') }}><Fence fontSize="small" /></Herramienta>
+        <Herramienta titulo="Editar los puntos del contorno" activo={editarContorno} disabled={!contornoPol} onClick={() => { setSel(new Set()); setEditarContorno(v => !v) }}><EditLocationAlt fontSize="small" /></Herramienta>
+        <Herramienta titulo="Muro en trazo (polilínea)" activo={modo === 'trazar:POLIMURO'} onClick={() => { setTrazo([]); setModo('trazar:POLIMURO') }}><Timeline fontSize="small" /></Herramienta>
+        <Herramienta titulo="Área de forma libre" activo={modo === 'trazar:POLIZONA'} onClick={() => { setTrazo([]); setModo('trazar:POLIZONA') }}><FormatShapes fontSize="small" /></Herramienta>
+        <Separador />
         <Herramienta titulo="Deshacer" atajo="Ctrl+Z" disabled={!pasado.current.length} onClick={deshacer}><Undo fontSize="small" /></Herramienta>
         <Herramienta titulo="Rehacer" atajo="Ctrl+Y" disabled={!futuro.current.length} onClick={rehacer}><Redo fontSize="small" /></Herramienta>
         <Separador />
@@ -924,10 +1148,10 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
             <Typography sx={{ fontSize: 10.5, letterSpacing: '0.1em', fontWeight: 800, color: 'text.secondary', mb: 1 }}>ESTRUCTURAS</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
               {(Object.keys(CATALOGO) as Tipo[]).map(t => {
-                const activo = modo === `colocar:${t}`
+                const activo = modo === `colocar:${t}` || modo === `trazar:${t}`
                 return (
                   <Tooltip key={t} placement="right" arrow title={<><b>{CATALOGO[t].nombre}</b><br />{CATALOGO[t].desc}<br /><i>Clic en la paleta y luego en el plano · Shift para colocar varias</i></>}>
-                    <Box role="button" aria-label={`Agregar ${CATALOGO[t].nombre}`} onClick={() => setModo(activo ? 'seleccionar' : `colocar:${t}`)}
+                    <Box role="button" aria-label={`Agregar ${CATALOGO[t].nombre}`} onClick={() => { setTrazo([]); setModo(activo ? 'seleccionar' : FORMAS.includes(t) ? `trazar:${t as Trazo}` : `colocar:${t}`) }}
                       sx={{ cursor: 'pointer', p: 0.75, pt: 1, borderRadius: 2, border: '1px solid', borderColor: activo ? ACENTO : 'divider', bgcolor: activo ? alpha(ACENTO, 0.06) : '#fff',
                         textAlign: 'center', transition: 'all .12s', '&:hover': { borderColor: activo ? ACENTO : '#CBD5E1', boxShadow: '0 2px 8px rgba(15,23,42,0.06)', transform: 'translateY(-1px)' } }}>
                       <IconoTipo tipo={t} />
@@ -962,6 +1186,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
                   <Typography noWrap sx={{ fontSize: 12.5, fontWeight: activo ? 700 : 500, flex: 1, color: activo ? ACENTO : '#1E293B' }}>{nombreDe(e)}</Typography>
                   {esEstructura(e) && <Typography sx={{ fontSize: 10.5, fontFamily: 'Consolas, monospace', color: 'text.secondary' }}>{posicionesDe(e)}</Typography>}
                   {esEstructura(e) && !e.zona_id && <Tooltip title="Sin zona del WMS"><WarningAmber sx={{ fontSize: 14, color: '#F59E0B' }} /></Tooltip>}
+                  {avisos.has(e.clave) && <Tooltip title={avisos.get(e.clave)!.join(' · ')}><WarningAmber sx={{ fontSize: 14, color: '#EF4444' }} /></Tooltip>}
                 </Stack>
               )
             })}
@@ -970,14 +1195,20 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
 
         {/* ── Lienzo ── */}
         <Box ref={lienzo} onPointerDown={abajo} onPointerMove={movimiento} onPointerUp={arriba} onPointerLeave={() => setCursor(null)}
+          onDoubleClick={() => { if (modo.startsWith('trazar:')) finalizarTrazo(false) }}
           onContextMenu={e => e.preventDefault()}
           sx={{ flex: 1, position: 'relative', overflow: 'hidden', bgcolor: '#EEF1F6', cursor: cursorLienzo, touchAction: 'none', userSelect: 'none' }}>
           <svg width={tam.w} height={tam.h} style={{ display: 'block', position: 'absolute', inset: 0 }}>
             <defs>
               <filter id="sombraPiso" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="2" stdDeviation="6" floodColor="#0F172A" floodOpacity="0.10" /></filter>
+              <pattern id="rayadoVeto" width={0.6} height={0.6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width={0.6} height={0.6} fill="#64748B" fillOpacity={0.08} /><line x1={0} y1={0} x2={0} y2={0.6} stroke="#64748B" strokeWidth={0.12} strokeOpacity={0.55} />
+              </pattern>
             </defs>
-            {/* piso */}
-            <rect x={pan.x} y={pan.y} width={config.ancho_m * zoom} height={config.largo_m * zoom} fill="#FFFFFF" filter="url(#sombraPiso)" />
+            {/* piso: el contorno real o el rectángulo */}
+            {contornoPol
+              ? <path d={pathSvg(contornoPol.map(([x, y]) => aPantalla(x, y)), true)} fill="#FFFFFF" filter="url(#sombraPiso)" />
+              : <rect x={pan.x} y={pan.y} width={config.ancho_m * zoom} height={config.largo_m * zoom} fill="#FFFFFF" filter="url(#sombraPiso)" />}
             {/* rejilla */}
             <g>
               {lineasX.map(x => <line key={`x${x}`} x1={x * zoom + pan.x} y1={0} x2={x * zoom + pan.x} y2={tam.h} stroke={esMayor(x) ? '#CBD5E1' : '#E2E8F0'} strokeOpacity={esMayor(x) ? 0.9 : 0.6} strokeWidth={1} />)}
@@ -986,8 +1217,19 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
             <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
               {plano && <image href={planoUrl!} x={plano.x} y={plano.y} width={plano.w} height={plano.h} opacity={opacidadPlano} preserveAspectRatio="none"
                 style={{ mixBlendMode: 'multiply', filter: verPlano === 'original' ? 'grayscale(1)' : undefined }} />}
-              <rect x={0} y={0} width={config.ancho_m} height={config.largo_m} fill="none" stroke="#94A3B8" strokeWidth={1} strokeDasharray="6 4" {...sw} />
+              <rect x={0} y={0} width={config.ancho_m} height={config.largo_m} fill="none" stroke="#94A3B8" strokeWidth={1} strokeDasharray="6 4" strokeOpacity={contornoPol ? 0.4 : 1} {...sw} />
+              {contornoPol && <path d={pathSvg(contornoPol, true)} fill="none" stroke="#1E293B" strokeWidth={editarContorno ? 2.5 : 2.2} strokeLinejoin="round" {...sw} />}
               {ordenados.map(e => dibujar(e))}
+              {/* estanterías con aviso */}
+              {els.filter(e => avisos.has(e.clave)).map(e => { const [L, F] = dims(e); return (
+                <rect key={`av${e.clave}`} x={-L / 2} y={-F / 2} width={L} height={F} fill="#EF4444" fillOpacity={0.12} stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2"
+                  transform={`translate(${e.x_m} ${e.y_m}) rotate(${e.rotacion})`} style={{ pointerEvents: 'none' }} {...sw} />) })}
+              {/* trazo en curso */}
+              {modo.startsWith('trazar:') && trazo.length > 0 && <g style={{ pointerEvents: 'none' }}>
+                <path d={pathSvg([...trazo, ...(previa ? [previa] : [])], false)} fill={modo === 'trazar:POLIMURO' ? 'none' : alpha(ACENTO, 0.06)}
+                  stroke={ACENTO} strokeWidth={modo === 'trazar:POLIMURO' ? 0.2 : 2} {...(modo === 'trazar:POLIMURO' ? {} : sw)} strokeLinejoin="round" />
+                {previa && <line x1={trazo[trazo.length - 1][0]} y1={trazo[trazo.length - 1][1]} x2={previa[0]} y2={previa[1]} stroke={ACENTO} strokeWidth={1.5} strokeDasharray="5 3" {...sw} />}
+              </g>}
               {fantasma && dibujar(fantasma, { fantasma: true })}
               {vistaSerie.map(e => dibujar(e, { fantasma: true }))}
               {/* guías */}
@@ -1005,7 +1247,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
 
             {/* etiquetas (derechas, en pantalla) */}
             {ordenados.map(e => {
-              if (e.tipo === 'MURO' || e.tipo === 'COLUMNA') return null
+              if (e.tipo === 'MURO' || e.tipo === 'COLUMNA' || e.tipo === 'POLIMURO') return null
               const b = caja(e), wpx = (b.x1 - b.x0) * zoom, hpx = (b.y1 - b.y0) * zoom
               if (wpx < 34 || hpx < 12) return null
               const [sx, sy] = aPantalla((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)
@@ -1027,7 +1269,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
             })}
 
             {/* asas de la selección */}
-            {uno && !arrastre?.tipo.match(/mover|marco/) && (() => {
+            {uno && !esForma(uno) && !arrastre?.tipo.match(/mover|marco/) && (() => {
               const [L, F] = dims(uno)
               const toPx = (lx: number, ly: number) => aPantalla(...aMundo(uno, lx, ly))
               const [tx, ty] = toPx(0, -F / 2)
@@ -1055,6 +1297,46 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
                     <text x={px + 56} y={py + 3} textAnchor="middle" fontSize={11} fill="#fff" style={{ fontFamily: 'Consolas, monospace' }}>{uno.modulos} mód · {fmt(L)} m</text></g> })()}
                 </g>
               )
+            })()}
+
+            {/* puntos del trazo y su medida */}
+            {modo.startsWith('trazar:') && (() => {
+              const ult = trazo[trazo.length - 1]
+              const cerca = trazo.length >= (modo === 'trazar:POLIMURO' ? 2 : 3) && previa && Math.hypot(previa[0] - trazo[0][0], previa[1] - trazo[0][1]) * zoom < 10
+              return <g style={{ pointerEvents: 'none' }}>
+                {trazo.map((q, i) => { const [x, y] = aPantalla(q[0], q[1]); return <rect key={i} x={x - 4} y={y - 4} width={8} height={8} fill={i === 0 && cerca ? '#10B981' : '#fff'} stroke={ACENTO} strokeWidth={1.6} /> })}
+                {previa && (() => { const [x, y] = aPantalla(previa[0], previa[1])
+                  const largo = ult ? Math.hypot(previa[0] - ult[0], previa[1] - ult[1]) : 0
+                  const ang = ult ? ((Math.atan2(-(previa[1] - ult[1]), previa[0] - ult[0]) * 180) / Math.PI + 360) % 360 : 0
+                  const txt = bufferLargo ? `Largo: ${bufferLargo} m ↵` : ult ? `${fmt(largo, 2)} m · ${Math.round(ang)}°` : 'Primer punto'
+                  return <g><circle cx={x} cy={y} r={4} fill={ACENTO} />
+                    <rect x={x + 12} y={y + 10} width={txt.length * 6.6 + 14} height={20} rx={4} fill="#0F172A" />
+                    <text x={x + 19} y={y + 24} fontSize={11} fill="#fff" style={{ fontFamily: 'Consolas, monospace' }}>{txt}</text></g> })()}
+                {cerca && (() => { const [x, y] = aPantalla(trazo[0][0], trazo[0][1]); return <circle cx={x} cy={y} r={10} fill="none" stroke="#10B981" strokeWidth={2} /> })()}
+              </g>
+            })()}
+            {/* imán a un vértice */}
+            {enganche && (() => { const [x, y] = aPantalla(enganche[0], enganche[1]); return <rect x={x - 7} y={y - 7} width={14} height={14} fill="none" stroke={GUIA} strokeWidth={2} style={{ pointerEvents: 'none' }} /> })()}
+            {/* asas de vértices y curvas (forma seleccionada o contorno en edición) */}
+            {!modo.startsWith('trazar:') && (() => {
+              const destino = uno && esForma(uno) ? uno.clave : editarContorno && (config.contorno?.length ?? 0) >= 3 ? '__contorno' : null
+              if (!destino) return null
+              const { pts, cerrado } = puntosDe(destino)
+              const tramos = cerrado ? pts.length : pts.length - 1
+              return <g>
+                {Array.from({ length: tramos }).map((_, i) => {
+                  const a = pts[i], b = pts[(i + 1) % pts.length]
+                  const m = medioTramo([a.x, a.y], [b.x, b.y], a.s ?? 0)
+                  const [x, y] = aPantalla(m[0], m[1])
+                  return <circle key={`m${i}`} cx={x} cy={y} r={5} fill={(a.s ?? 0) ? '#F59E0B' : '#fff'} stroke="#F59E0B" strokeWidth={1.6} style={{ cursor: 'grab' }}
+                    onPointerDown={ev => empezarCurva(ev, destino, i)} onDoubleClick={ev => { ev.stopPropagation(); insertarVertice(destino, i) }}>
+                    <title>Arrastre para curvar el tramo · doble clic para agregar un punto · {fmt(largoTramo([a.x, a.y], [b.x, b.y], a.s ?? 0), 2)} m</title></circle>
+                })}
+                {pts.map((q, i) => { const [x, y] = aPantalla(q.x, q.y); return (
+                  <rect key={`v${i}`} x={x - 5.5} y={y - 5.5} width={11} height={11} rx={1.5} fill="#fff" stroke={ACENTO} strokeWidth={1.8} style={{ cursor: 'move' }}
+                    onPointerDown={ev => empezarVertice(ev, destino, i)} onDoubleClick={ev => { ev.stopPropagation(); quitarVertice(destino, i) }}>
+                    <title>Arrastre para mover el punto {i + 1} · doble clic para quitarlo</title></rect>) })}
+              </g>
             })()}
 
             {/* medida de la regla */}
@@ -1085,6 +1367,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
           {modo !== 'seleccionar' && modo !== 'mano' && <Box sx={{ position: 'absolute', top: REGLA + 12, left: '50%', transform: 'translateX(-50%)', px: 1.75, py: 0.75,
             borderRadius: 5, bgcolor: '#0F172A', color: '#fff', fontSize: 12.5, boxShadow: '0 6px 20px rgba(15,23,42,0.25)', display: 'flex', alignItems: 'center', gap: 1, pointerEvents: 'none' }}>
             {modo === 'medir' ? 'Arrastre para medir una distancia' : modo === 'calibrar' ? 'Trace sobre el plano una medida que conozca (p. ej. un muro)'
+              : modo.startsWith('trazar:') ? `${modo === 'trazar:CONTORNO' ? 'Contorno de la bodega' : modo === 'trazar:POLIMURO' ? 'Muro' : 'Área libre'}: clic para cada punto · Shift = 45° · escriba un largo + Enter · ${modo === 'trazar:POLIMURO' ? 'doble clic o Enter termina · clic en el primer punto lo cierra' : 'clic en el primer punto o Enter cierra'} · Retroceso borra · Esc cancela`
               : `Clic para colocar ${CATALOGO[modo.split(':')[1] as Tipo].nombre.toLowerCase()} · Shift para varias · Esc para terminar`}
           </Box>}
 
@@ -1107,11 +1390,12 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
           <Stack direction="row" alignItems="center" gap={2} sx={{ position: 'absolute', left: REGLA, right: 0, bottom: 0, height: 28, px: 1.5, bgcolor: alpha('#FFFFFF', 0.92),
             borderTop: '1px solid', borderColor: 'divider', fontSize: 11.5, color: '#475569', fontFamily: 'Consolas, monospace', backdropFilter: 'blur(4px)', pointerEvents: 'none' }}>
             <span>X {cursor ? fmt(cursor[0], 2) : '—'} m</span><span>Y {cursor ? fmt(cursor[1], 2) : '—'} m</span>
-            <span>Piso {fmt(config.ancho_m)} × {fmt(config.largo_m)} m</span>
+            <span>{contornoPol ? `Bodega ${fmt(areaPiso, 0)} m²` : `Piso ${fmt(config.ancho_m)} × ${fmt(config.largo_m)} m`}</span>
             <Box flex={1} />
             <span>{totales.estructuras} estructuras</span><span>{fmt(totales.posiciones, 0)} posiciones</span>
             <span>{fmt(totales.volumen)} m³ útiles</span>
-            <span>{fmt((totales.huella / Math.max(1, config.ancho_m * config.largo_m)) * 100)}% del piso</span>
+            <span>{fmt((totales.huella / Math.max(1, areaPiso)) * 100)}% del piso</span>
+            {avisos.size > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>{avisos.size} aviso(s)</span>}
             {seleccion.length > 0 && <span style={{ color: ACENTO, fontWeight: 700 }}>{seleccion.length} seleccionada(s)</span>}
           </Stack>
         </Box>
@@ -1240,7 +1524,27 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
           </Box></Tooltip>
         </Stack>
 
-        {esEstructura(e) ? <>
+        {avisos.has(e.clave) && <Alert severity="error" sx={{ m: 1.5, mb: 0, fontSize: 12.5 }}>{avisos.get(e.clave)!.join('. ')}.</Alert>}
+        {esForma(e) ? <>
+          <Seccion titulo={e.tipo === 'POLIZONA' ? 'Área' : 'Muro'}>
+            <Stack gap={1.25}>
+              {e.tipo === 'POLIZONA' && <TextField select size="small" label="Tipo de área" value={e.categoria ?? 'OTRA'} onChange={ev => cambiar(k, { categoria: ev.target.value, color: null,
+                nombre: !e.nombre || e.nombre === 'Área' || Object.values(AREAS).some(a => a.nombre === e.nombre) ? AREAS[ev.target.value].nombre : e.nombre })}>
+                {Object.entries(AREAS).map(([c, a]) => <MenuItem key={c} value={c}><Box component="span" sx={{ display: 'inline-block', width: 10, height: 10, borderRadius: 0.5, bgcolor: a.color, mr: 1 }} />{a.nombre}</MenuItem>)}
+              </TextField>}
+              <TextField size="small" label="Nombre" value={e.nombre ?? ''} onChange={ev => cambiar(k, { nombre: ev.target.value || null }, 'nombre')} />
+              {e.tipo === 'POLIZONA' && <TextField select size="small" label="Ubicación del WMS (opcional)" value={e.ubicacion_id ?? ''} onChange={ev => cambiar(k, { ubicacion_id: Number(ev.target.value) || null })}>
+                <MenuItem value="">— ninguna —</MenuItem>{d!.ubicaciones_area.map(u => <MenuItem key={u.id} value={u.id}>{u.codigo}</MenuItem>)}
+              </TextField>}
+              {e.tipo === 'POLIMURO' && <Stack direction="row" gap={1} alignItems="center">
+                <Numero etiqueta="Espesor" valor={e.fondo_cm} unidad="cm" min={5} max={200} decimales={0} ancho={130} onCambio={v => v && cambiar(k, { fondo_cm: v }, 'espesor')} />
+                <FormControlLabel control={<Checkbox size="small" checked={!!e.forma?.cerrado} onChange={ev => cambiar(k, x => recentrar({ ...x, forma: { ...x.forma!, cerrado: ev.target.checked } }))} />}
+                  label={<Typography fontSize={13}>Cerrado</Typography>} />
+              </Stack>}
+            </Stack>
+          </Seccion>
+          <Seccion titulo="Vértices y tramos">{editorVertices(verticesMundo(e), cerradaDe(e), pts => cambiar(k, x => conVerticesMundo(x, pts), 'vertices'))}</Seccion>
+        </> : esEstructura(e) ? <>
           <Seccion titulo="Identificación">
             <Stack gap={1.25}>
               <Stack direction="row" gap={1}>
@@ -1288,7 +1592,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
           </Stack>
         </Seccion>}
 
-        <Seccion titulo="Posición en el piso">
+        {!esForma(e) && <Seccion titulo="Posición en el piso">
           <Stack gap={1.25}>
             <Stack direction="row" gap={1}>
               <Numero etiqueta="X (centro)" valor={e.x_m} unidad="m" paso={0.1} onCambio={v => v != null && cambiar(k, { x_m: v }, 'x')} />
@@ -1301,7 +1605,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
               </ToggleButtonGroup>
             </Stack>
           </Stack>
-        </Seccion>
+        </Seccion>}
 
         {esEstructura(e) && <Seccion titulo="Resumen">
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
@@ -1332,6 +1636,44 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
         <Box sx={{ p: 2 }}>
           <Button fullWidth color="error" variant="outlined" startIcon={<DeleteOutline />} onClick={eliminar} sx={{ textTransform: 'none', borderRadius: 2 }}>Quitar del layout</Button>
         </Box>
+      </Box>
+    )
+  }
+
+  /** Tabla de vértices: coordenadas, curva de cada tramo y su largo; agregar y quitar puntos. */
+  function editorVertices(pts: Pt[], cerrado: boolean, onCambio: (pts: Pt[]) => void) {
+    const tramos = cerrado ? pts.length : pts.length - 1
+    const minimo = cerrado ? 3 : 2
+    return (
+      <Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75, mb: 1.25 }}>
+          <Dato etiqueta="Perímetro" valor={`${fmt(perimetro(pts, cerrado), 2)} m`} />
+          {cerrado ? <Dato etiqueta="Área" valor={`${fmt(areaPol(muestrear(pts, true)), 1)} m²`} /> : <Dato etiqueta="Puntos" valor={String(pts.length)} />}
+        </Box>
+        <Typography fontSize={11.5} color="text.secondary" mb={1}>En el lienzo: arrastre un punto para moverlo; arrastre el punto medio de un tramo (naranja) para curvarlo; doble clic agrega o quita puntos.</Typography>
+        <Stack gap={0.75}>
+          {pts.map((q, i) => {
+            const b = pts[(i + 1) % pts.length]
+            return (
+              <Box key={i} sx={{ p: 0.75, borderRadius: 1.5, border: '1px solid', borderColor: 'divider', bgcolor: '#FCFCFD' }}>
+                <Stack direction="row" gap={0.75} alignItems="center">
+                  <Typography fontSize={11.5} fontWeight={800} width={18} color={ACENTO}>{i + 1}</Typography>
+                  <Numero etiqueta="X" valor={q.x} unidad="m" paso={0.1} onCambio={v => v != null && onCambio(pts.map((p2, j) => j === i ? { ...p2, x: v } : p2))} />
+                  <Numero etiqueta="Y" valor={q.y} unidad="m" paso={0.1} onCambio={v => v != null && onCambio(pts.map((p2, j) => j === i ? { ...p2, y: v } : p2))} />
+                  <Tooltip title="Quitar el punto"><span><IconButton size="small" disabled={pts.length <= minimo} onClick={() => onCambio(pts.filter((_, j) => j !== i))}><Close sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
+                </Stack>
+                {i < tramos && <Stack direction="row" gap={0.75} alignItems="center" mt={0.75} pl={3}>
+                  <Numero etiqueta={`Curva tramo ${i + 1}→${(i + 1) % pts.length + 1}`} valor={q.s ?? 0} unidad="m" paso={0.1} onCambio={v => v != null && onCambio(pts.map((p2, j) => j === i ? { ...p2, s: v } : p2))} />
+                  <Typography fontSize={11.5} color="text.secondary" whiteSpace="nowrap">{fmt(largoTramo([q.x, q.y], [b.x, b.y], q.s ?? 0), 2)} m</Typography>
+                  <Tooltip title="Agregar un punto en la mitad del tramo"><IconButton size="small" onClick={() => {
+                    const [s1, m, s2] = partirTramo([q.x, q.y], [b.x, b.y], q.s ?? 0)
+                    const out = pts.map((p2, j) => j === i ? { ...p2, s: s1 } : p2); out.splice(i + 1, 0, { x: r3(m[0]), y: r3(m[1]), s: s2 }); onCambio(out)
+                  }}><Add sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                </Stack>}
+              </Box>
+            )
+          })}
+        </Stack>
       </Box>
     )
   }
@@ -1391,13 +1733,28 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
             <Dato etiqueta="Estructuras" valor={String(totales.estructuras)} />
             <Dato etiqueta="Posiciones" valor={fmt(totales.posiciones, 0)} />
             <Dato etiqueta="Volumen útil" valor={`${fmt(totales.volumen)} m³`} />
-            <Dato etiqueta="Piso ocupado" valor={`${fmt((totales.huella / Math.max(1, config.ancho_m * config.largo_m)) * 100)}%`} />
+            <Dato etiqueta="Piso ocupado" valor={`${fmt((totales.huella / Math.max(1, areaPiso)) * 100)}%`} />
           </Box>
+          {avisos.size > 0 && <Alert severity="error" sx={{ mt: 1.25, py: 0, fontSize: 12 }}>{avisos.size} estructura(s) fuera del contorno, sobre un muro o en un área no transitable.</Alert>}
           {totales.sinZona > 0 && <Alert severity="warning" sx={{ mt: 1.25, py: 0, fontSize: 12 }}>{totales.sinZona} estructura(s) sin zona del WMS.</Alert>}
           <FormControlLabel sx={{ mt: 1 }} control={<Checkbox size="small" checked={verOcupacion} onChange={e => setVerOcupacion(e.target.checked)} />}
             label={<Typography fontSize={13}>Ver la ocupación sobre el plano</Typography>} />
         </Seccion>
-        <Seccion titulo="Piso">
+        <Seccion titulo="Contorno de la bodega">
+          {contornoPol ? <Stack gap={1}>
+            <Stack direction="row" gap={1}>
+              <Button size="small" variant={editarContorno ? 'contained' : 'outlined'} startIcon={<EditLocationAlt />} onClick={() => setEditarContorno(v => !v)}
+                sx={{ textTransform: 'none', flex: 1, ...(editarContorno ? { bgcolor: ACENTO, boxShadow: 'none' } : {}) }}>{editarContorno ? 'Terminar edición' : 'Editar puntos'}</Button>
+              <Button size="small" variant="outlined" startIcon={<Fence />} onClick={() => { setTrazo([]); setModo('trazar:CONTORNO') }} sx={{ textTransform: 'none' }}>Redibujar</Button>
+            </Stack>
+            {editorVertices(config.contorno!, true, pts => cambiarConfig({ contorno: pts.map(q => ({ ...q, x: Math.max(0, q.x), y: Math.max(0, q.y) })) }, 'contorno'))}
+            <Button size="small" color="error" onClick={() => { cambiarConfig({ contorno: null }); setEditarContorno(false) }} sx={{ textTransform: 'none', alignSelf: 'flex-start' }}>Quitar el contorno (volver al rectángulo)</Button>
+          </Stack> : <Stack gap={1}>
+            <Typography fontSize={12.5} color="text.secondary">Trace el perímetro real del edificio punto a punto (con tramos rectos o curvos). El 3D, el área en m² y los avisos lo usan.</Typography>
+            <Button size="small" variant="contained" startIcon={<Fence />} onClick={() => { setTrazo([]); setModo('trazar:CONTORNO') }} sx={{ textTransform: 'none', bgcolor: ACENTO, boxShadow: 'none' }}>Dibujar contorno</Button>
+          </Stack>}
+        </Seccion>
+        <Seccion titulo={contornoPol ? 'Área de trabajo (lienzo)' : 'Piso'}>
           <Stack direction="row" gap={1}>
             <Numero etiqueta="Ancho" valor={config.ancho_m} unidad="m" min={2} max={2000} paso={0.5} onCambio={v => v && cambiarConfig({ ancho_m: v }, 'ancho')} />
             <Numero etiqueta="Largo" valor={config.largo_m} unidad="m" min={2} max={2000} paso={0.5} onCambio={v => v && cambiarConfig({ largo_m: v }, 'largo')} />
@@ -1436,7 +1793,7 @@ export default function ConstructorBodega({ almacen, onVer3D, seleccionInicial }
         </Seccion>
         <Seccion titulo="Atajos">
           <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1.5, rowGap: 0.5, fontSize: 12 }}>
-            {[['V / H / M', 'Seleccionar · mano · medir'], ['Shift + clic', 'Agregar a la selección'], ['Arrastrar vacío', 'Seleccionar con marco'], ['R', 'Rotar 90°'], ['Ctrl + D', 'Duplicar'],
+            {[['V / H / M', 'Seleccionar · mano · medir'], ['Shift al trazar', 'Ángulos de 45°'], ['Número + Enter', 'Tramo de largo exacto'], ['Shift + clic', 'Agregar a la selección'], ['Arrastrar vacío', 'Seleccionar con marco'], ['R', 'Rotar 90°'], ['Ctrl + D', 'Duplicar'],
               ['Flechas', `Mover ${paso < 1 ? paso * 100 + ' cm' : '1 m'} (Shift: 1 m)`], ['Alt', 'Arrastrar sin imán'], ['Espacio', 'Desplazar la vista'], ['F', 'Encuadrar'], ['Ctrl + S', 'Guardar']].map(([a, b]) => <Fragment key={a}>
               <Box key={a} component="kbd" sx={{ fontFamily: 'Consolas, monospace', fontSize: 11, px: 0.75, py: 0.1, borderRadius: 0.75, bgcolor: '#F1F5F9', border: '1px solid #E2E8F0', whiteSpace: 'nowrap', justifySelf: 'start' }}>{a}</Box>
               <Typography key={b} fontSize={12} color="text.secondary">{b}</Typography></Fragment>)}

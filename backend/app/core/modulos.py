@@ -27,6 +27,8 @@ MODULOS: List[Modulo] = [
     Modulo("wms",     "WMS · Almacenes", ("/wms",)),
     Modulo("pos",     "POS · Punto de Venta", ("/pos",)),
     Modulo("tms",     "TMS · Transporte", ("/tms", "/fletes")),
+    # Jornadas, estaciones de trabajo y productividad de las personas que operan.
+    Modulo("wfm",     "WFM · Personal operativo", ("/personal",)),
     # Sin esto nadie entra ni administra su empresa: no se vende aparte.
     Modulo("base", "Acceso y administración",
            ("/auth", "/usuarios", "/roles", "/alertas", "/proveedores", "/catalogos",
@@ -42,7 +44,7 @@ ESENCIALES = tuple(m.clave for m in MODULOS if m.esencial)
 # Lo que se activa por defecto al dar de alta una empresa. Se deja en lo mínimo
 # a propósito: es más fácil habilitar lo que se vendió que descubrir tarde que
 # un cliente lleva meses usando algo que nunca contrató.
-POR_DEFECTO = ESENCIALES + ("wms", "pos", "tms")
+POR_DEFECTO = ESENCIALES + ("wms", "pos", "tms", "wfm")
 
 
 def modulo_de_ruta(ruta: str) -> Optional[str]:

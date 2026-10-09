@@ -174,6 +174,15 @@ async def _preparar_registro_clientes() -> None:
                 "ALTER TABLE public.plataforma_pago "
                 "ADD COLUMN IF NOT EXISTS factura_id INTEGER"
             ))
+        # WFM · Personal salió del WMS (las jornadas vivían allí): quien tiene
+        # el WMS contratado recibe WFM una sola vez. Si después se le quita, la
+        # fila queda inactiva y no se vuelve a agregar.
+        if (await conn.execute(text("SELECT to_regclass('public.plataforma_modulo_cliente')"))).scalar():
+            await conn.execute(text(
+                "INSERT INTO public.plataforma_modulo_cliente (cliente_id, modulo, activo, desde) "
+                "SELECT m.cliente_id, 'wfm', true, CURRENT_DATE FROM public.plataforma_modulo_cliente m "
+                "WHERE m.modulo = 'wms' AND m.activo AND NOT EXISTS (SELECT 1 FROM public.plataforma_modulo_cliente x "
+                "WHERE x.cliente_id = m.cliente_id AND x.modulo = 'wfm')"))
         # Sin operador nadie podría dar de alta empresas: se designa a la que
         # ya estaba, que es la de quien monta la plataforma.
         hay = (await conn.execute(text(
@@ -639,6 +648,16 @@ async def _migrar_esquema(esquema: str) -> None:
     #    `pregunta_id` y la tabla tendría `item_id`, así que el módulo quedaría
     #    roto en silencio. Entre perder datos y romper el módulo, la salida es
     #    conservar los datos aparte y dejar el módulo funcionando.
+    # WFM: las jornadas nacieron en el WMS (wms_jornadas) y pasaron al módulo
+    # de personal. Se renombran antes de `create_all` para conservar los datos
+    # (las llaves foráneas siguen a la tabla renombrada).
+    async with _conexion(esquema) as conn:
+        for viejo, nuevo in (("wms_jornadas", "per_jornadas"), ("wms_jornada_pausas", "per_jornada_pausas")):
+            hay_viejo = (await conn.execute(text("SELECT to_regclass(:t)"), {"t": f'"{esquema}".{viejo}'})).scalar()
+            hay_nuevo = (await conn.execute(text("SELECT to_regclass(:t)"), {"t": f'"{esquema}".{nuevo}'})).scalar()
+            if hay_viejo and not hay_nuevo:
+                await conn.execute(text(f"ALTER TABLE {viejo} RENAME TO {nuevo}"))
+
     async with _conexion(esquema) as conn:
         existe = await conn.execute(text(
             "SELECT to_regclass(:t)"), {"t": f'"{esquema}".eam_chk_item'})
@@ -2394,8 +2413,15 @@ async def lifespan(app: FastAPI):
     import asyncio
     from app.core.marketplace import trabajador
     tarea_canales = asyncio.create_task(trabajador.ciclo())
+    # Tareas de bodega: reabastecimiento de frentes, cola y jornadas olvidadas.
+    from app.core import wms_ciclo_tareas
+    tarea_bodega = asyncio.create_task(wms_ciclo_tareas.ciclo())
+    from app.core import geo
+    tarea_geo = asyncio.create_task(geo.ciclo())
     yield
     tarea_canales.cancel()
+    tarea_bodega.cancel()
+    tarea_geo.cancel()
     await engine.dispose()
 
 

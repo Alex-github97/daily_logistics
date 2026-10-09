@@ -19,7 +19,7 @@ import {
 } from '@mui/material'
 import { TextField } from '@/components/comun/Desplegables'
 import Grid from '@mui/material/Grid2'
-import { Map as MapaIcon, AddPhotoAlternate, Search, Straighten, AutoFixHigh, CropFree, ViewInAr, PhotoCamera, Refresh } from '@mui/icons-material'
+import { Map as MapaIcon, AddPhotoAlternate, Search, Straighten, AutoFixHigh, CropFree, ViewInAr, PhotoCamera, Refresh, Architecture } from '@mui/icons-material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Layout } from '@/components/layout/Layout'
@@ -321,6 +321,124 @@ function VistaFoto({ fotoId, almacen, productoId, onCalibrada }: { fotoId: numbe
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Estructura del constructor — vista de frente dibujada con sus datos
+// ═════════════════════════════════════════════════════════════════════════════
+function VistaEstructura({ id, almacen, productoId, onEditar }: { id: number; almacen: number; productoId?: number; onEditar: () => void }) {
+  const est = useQuery({ queryKey: ['estructura-estado', id, productoId], refetchInterval: 30_000,
+    queryFn: () => api.get(`/wms/layout/estructuras/${id}/estado`, { params: { producto_id: productoId } }).then(r => r.data) })
+  const [vista, setVista] = useState<'esquema' | 'foto'>('esquema')
+  if (!est.data) return <LinearProgress />
+  const e = est.data.estructura, celdas: any[] = est.data.celdas
+  const niveles: number = e.niveles_vista, posiciones: number = e.posiciones, modulos: number = e.modulos
+  const resumen = est.data.resumen as Record<string, number>
+  const vinculadas = celdas.filter(c => c.ubicacion_id).length
+  const ocupadas = celdas.filter(c => !['VACIA', 'SIN_ASIGNAR'].includes(c.estado)).length
+  const unidades = celdas.reduce((s, c) => s + (c.unidades || 0), 0)
+  const total = vinculadas || celdas.length || 1
+  const tipoNombre: Record<string, string> = { SELECTIVO: 'Rack selectivo', GONDOLA: 'Góndola', CANTILEVER: 'Cantiléver', PISO: 'Almacenamiento en piso' }
+  return (
+    <Box>
+      <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap" mb={1.5}>
+        <Typography fontWeight={800} fontSize={18}>{e.nombre}</Typography>
+        <Chip size="small" label={`${tipoNombre[e.tipo] ?? e.tipo} · ${niveles} ${e.tipo === 'PISO' ? 'nivel' : 'niveles'} × ${posiciones} posiciones`} sx={{ fontFamily: 'Consolas, monospace' }} />
+        {e.zona && <Chip size="small" variant="outlined" label={`Zona ${e.zona}`} />}
+        <Box flex={1} />
+        {e.foto_id && <ToggleButtonGroup size="small" exclusive value={vista} onChange={(_, v) => v && setVista(v)}>
+          <ToggleButton value="esquema" sx={{ textTransform: 'none', gap: 0.5 }}><ViewInAr fontSize="small" />Esquema</ToggleButton>
+          <ToggleButton value="foto" sx={{ textTransform: 'none', gap: 0.5 }}><PhotoCamera fontSize="small" />Foto</ToggleButton>
+        </ToggleButtonGroup>}
+        <Button size="small" startIcon={<Architecture />} onClick={onEditar} sx={{ textTransform: 'none' }}>Editar en el constructor</Button>
+      </Stack>
+
+      {vista === 'foto' && e.foto_id ? <VistaFoto fotoId={e.foto_id} almacen={almacen} productoId={productoId} onCalibrada={() => est.refetch()} /> : <>
+        <Stack direction="row" gap={1.5} mb={1.5} flexWrap="wrap">
+          <Kpi etiqueta="Ocupación" valor={`${Math.round((ocupadas / total) * 100)}%`} color={colorPct((ocupadas / total) * 100)} sub={`${ocupadas} de ${total} posiciones`} />
+          <Kpi etiqueta="Unidades" valor={num(unidades)} color="#818CF8" sub="en esta estructura" />
+          <Kpi etiqueta="Libres" valor={String(resumen.VACIA ?? 0)} color="#64748B" sub="posiciones vacías" />
+          <Kpi etiqueta="Alertas" valor={String((resumen.LLENA ?? 0) + (resumen.BLOQUEADA ?? 0))} color="#F87171" sub="llenas o bloqueadas" />
+        </Stack>
+        {vinculadas < celdas.length && <Alert severity="warning" sx={{ mb: 1.5 }} action={<Button size="small" color="inherit" onClick={onEditar}>Ir al constructor</Button>}>
+          {celdas.length - vinculadas} posiciones aún no tienen ubicación del WMS: use «Generar ubicaciones» en el constructor.</Alert>}
+
+        {/* alzado: postes en cada módulo, largueros bajo cada nivel */}
+        <Box sx={{ ...escenario, p: { xs: 1.5, md: 2.5 }, pl: { xs: 4, md: 5.5 }, pb: { xs: 4, md: 5 } }}>
+          <Box sx={{ position: 'relative', width: '100%', aspectRatio: `${Math.max(1.6, (posiciones * 1.15) / Math.max(1, niveles) * (e.tipo === 'GONDOLA' ? 1.4 : 1))}` , maxHeight: 640 }}>
+            {/* estructura */}
+            {e.tipo !== 'PISO' && Array.from({ length: modulos + 1 }).map((_, i) => (
+              <Box key={`p${i}`} sx={{ position: 'absolute', top: -6, bottom: -4, left: `calc(${(i / modulos) * 100}% - 4px)`, width: 8, borderRadius: 1,
+                bgcolor: i === 0 || i === modulos ? '#EA580C' : '#64748B', opacity: 0.9 }} />
+            ))}
+            {e.tipo !== 'PISO' && Array.from({ length: niveles }).map((_, i) => (
+              <Box key={`l${i}`} sx={{ position: 'absolute', left: 0, right: 0, height: e.tipo === 'SELECTIVO' ? 7 : 5, top: `calc(${((i + 1) / niveles) * 100}% - 3px)`,
+                bgcolor: e.tipo === 'SELECTIVO' ? '#F97316' : '#94A3B8', borderRadius: 0.5 }} />
+            ))}
+            {e.tipo === 'PISO' && <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: -4, height: 6, bgcolor: '#EAB308', borderRadius: 1 }} />}
+            {Array.from({ length: niveles }).map((_, i) => (
+              <Typography key={`n${i}`} sx={{ position: 'absolute', left: { xs: -26, md: -34 }, top: `${((i + 0.5) / niveles) * 100}%`, transform: 'translateY(-50%)',
+                fontFamily: 'Consolas, monospace', fontSize: 12, fontWeight: 700, color: NEON.cian }}>N{niveles - i}</Typography>
+            ))}
+            {Array.from({ length: posiciones }).map((_, j) => (
+              <Typography key={`q${j}`} sx={{ position: 'absolute', bottom: { xs: -26, md: -32 }, left: `${((j + 0.5) / posiciones) * 100}%`, transform: 'translateX(-50%)',
+                fontFamily: 'Consolas, monospace', fontSize: 12, fontWeight: 700, color: NEON.cian }}>P{j + 1}</Typography>
+            ))}
+            {/* posiciones */}
+            <Box sx={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${posiciones}, 1fr)`, gridTemplateRows: `repeat(${niveles}, 1fr)` }}>
+              {celdas.map(c => {
+                const es = ESTADOS[c.estado] ?? ESTADOS.OCUPADA
+                const color = c.resaltar ? BUSCADO : es.color
+                const vacia = c.estado === 'VACIA' || c.estado === 'SIN_ASIGNAR'
+                const pct = c.ocupacion_pct ?? (c.unidades > 0 ? 50 : 0)
+                const top = c.contenido?.[0]
+                return (
+                  <Tooltip key={`${c.nivel}-${c.posicion}`} placement="top" title={c.codigo ? <>
+                    <b>{c.codigo}</b> · {es.texto}{c.ocupacion_pct != null ? ` · ${c.ocupacion_pct}%` : ''}<br />
+                    {c.contenido.map((x: any) => <span key={x.sku}>{x.sku} · {x.nombre} × {num(x.unidades)}<br /></span>)}</> : 'Sin ubicación del WMS (genérela en el constructor)'}>
+                    <Box sx={{
+                      gridRow: niveles - c.nivel + 1, gridColumn: c.posicion, m: { xs: '6px 7px 10px', md: '8px 10px 13px' }, borderRadius: 1.5, position: 'relative', overflow: 'hidden',
+                      border: `1.5px ${c.estado === 'SIN_ASIGNAR' ? 'dashed' : 'solid'} ${alpha(color, vacia && !c.resaltar ? 0.5 : 0.95)}`,
+                      bgcolor: vacia && !c.resaltar ? alpha('#FFFFFF', 0.85) : alpha(color, 0.14),
+                      animation: c.resaltar || c.estado === 'LLENA' ? 'pulso 1.6s ease-in-out infinite' : undefined,
+                      transition: 'transform .15s, box-shadow .15s', '&:hover': { transform: 'scale(1.02)', boxShadow: `0 4px 14px ${alpha(color, 0.35)}` },
+                      display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: { xs: 0.5, md: 1 }, ...ANIMACIONES,
+                    }}>
+                      {/* llenado proporcional al volumen */}
+                      {!vacia && <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${Math.max(8, Math.min(100, pct))}%`, bgcolor: alpha(color, 0.16), pointerEvents: 'none' }} />}
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" gap={0.5} sx={{ position: 'relative' }}>
+                        <Typography sx={{ fontFamily: 'Consolas, monospace', fontSize: { xs: 9.5, md: 12 }, fontWeight: 800, color: vacia ? '#475569' : color,
+                          px: 0.6, borderRadius: 0.75, bgcolor: alpha('#FFFFFF', 0.9) }}>{c.codigo ?? '—'}</Typography>
+                        {!vacia && <Typography sx={{ fontFamily: 'Consolas, monospace', fontSize: { xs: 9, md: 11 }, fontWeight: 700, color: NEON.texto,
+                          px: 0.6, borderRadius: 0.75, bgcolor: alpha('#FFFFFF', 0.9) }}>{c.ocupacion_pct != null ? `${c.ocupacion_pct}%` : `${num(c.unidades)} u`}</Typography>}
+                      </Stack>
+                      {top ? (
+                        <Box sx={{ position: 'relative', px: 0.6, py: 0.3, borderRadius: 0.75, bgcolor: alpha('#FFFFFF', 0.92), display: { xs: 'none', sm: 'block' } }}>
+                          <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 700, color: NEON.texto }}>{top.nombre}</Typography>
+                          <Typography noWrap sx={{ fontSize: 10.5, color: '#64748B', fontFamily: 'Consolas, monospace' }}>
+                            {top.sku} · {num(top.unidades)} und{c.contenido.length > 1 ? ` · +${c.contenido.length - 1}` : ''}</Typography>
+                        </Box>
+                      ) : <Typography sx={{ position: 'relative', fontSize: 11, color: NEON.tenue, textAlign: 'center', fontFamily: 'Consolas, monospace' }}>
+                        {c.estado === 'SIN_ASIGNAR' ? 'SIN UBICACIÓN' : 'LIBRE'}</Typography>}
+                      <Box sx={{ position: 'relative', height: 4, borderRadius: 2, bgcolor: alpha('#94A3B8', 0.18), overflow: 'hidden' }}>
+                        <Box sx={{ height: '100%', width: `${Math.min(100, vacia ? 0 : pct)}%`, bgcolor: color }} />
+                      </Box>
+                    </Box>
+                  </Tooltip>
+                )
+              })}
+            </Box>
+          </Box>
+        </Box>
+        <Stack direction="row" gap={1.5} mt={1.25} flexWrap="wrap">
+          {Object.entries(ESTADOS).map(([k, es]) => <Stack key={k} direction="row" gap={0.6} alignItems="center">
+            <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: alpha(es.color, 0.35), border: `1.5px ${k === 'SIN_ASIGNAR' ? 'dashed' : 'solid'} ${es.color === '#CBD5E1' ? '#94A3B8' : es.color}` }} />
+            <Typography fontSize={11.5}>{es.texto}</Typography></Stack>)}
+          <Stack direction="row" gap={0.6} alignItems="center"><Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: alpha(BUSCADO, 0.35), border: `1.5px solid ${BUSCADO}` }} /><Typography fontSize={11.5}>Producto buscado</Typography></Stack>
+        </Stack>
+      </>}
+    </Box>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Plano — gemelo digital (SVG vectorizado + estanterías vivas)
 // ═════════════════════════════════════════════════════════════════════════════
 function Plano({ almacen, fotos, onAbrir }: { almacen: number; fotos: any[]; onAbrir: (id: number) => void }) {
@@ -438,7 +556,23 @@ export default function WMSMapa() {
   const ocupacionFoto = useMemo(() => new Map<number, number | null>((plano.data?.marcas ?? []).filter((m: any) => m.foto_id).map((m: any) => [m.foto_id, m.ocupacion_pct])), [plano.data])
   const [tab, setTab] = useState(0)
   const [foto, setFoto] = useState<number | null>(null)
+  const [estructura, setEstructura] = useState<number | null>(null)
   const [editar, setEditar] = useState<number | null>(null)
+  const estructuras = useQuery({ queryKey: ['layout-estructuras', almacen], enabled: !!almacen && tab === 3,
+    queryFn: () => api.get('/wms/layout/estructuras', { params: { almacen_id: almacen } }).then(r => r.data as any[]) })
+  const fotosLigadas = new Set((estructuras.data ?? []).map(e => e.foto_id).filter(Boolean))
+  const fotosSueltas = (fotos.data ?? []).filter((f: any) => !fotosLigadas.has(f.id))
+  const verFoto = (id: number) => { setFoto(id); setEstructura(null) }
+  const verEstructura = (id: number) => { setEstructura(id); setFoto(null) }
+  // Al abrir una foto que pertenece a una estructura, mostrar la estructura.
+  useEffect(() => {
+    if (!foto || !estructuras.data) return
+    const e = estructuras.data.find(x => x.foto_id === foto)
+    if (e) { setEstructura(e.id); setFoto(null) }
+  }, [foto, estructuras.data])
+  useEffect(() => {
+    if (tab === 3 && !foto && !estructura && estructuras.data?.length) setEstructura(estructuras.data[0].id)
+  }, [tab, foto, estructura, estructuras.data])
   const [nueva, setNueva] = useState<{ archivo: File | null; nombre: string; pasillo: string; estanteria: string } | null>(null)
   const [q, setQ] = useState('')
   const [busqueda, setBusqueda] = useState<any>(null)
@@ -461,7 +595,7 @@ export default function WMSMapa() {
         <Encabezado icono={<MapaIcon sx={{ fontSize: 28 }} />} titulo="Mapa de la bodega · gemelo digital" color={COLOR}
           subtitulo="Planos y estanterías vectorizados con la ocupación del inventario en vivo" />
         <Stack direction="row" gap={1.5} mb={2} flexWrap="wrap" alignItems="center">
-          <TextField select size="small" label="Almacén" value={almacen} onChange={e => { setAlmacen(Number(e.target.value)); setFoto(null); setBusqueda(null) }} sx={{ minWidth: 240 }}>
+          <TextField select size="small" label="Almacén" value={almacen} onChange={e => { setAlmacen(Number(e.target.value)); setFoto(null); setEstructura(null); setBusqueda(null) }} sx={{ minWidth: 240 }}>
             {(almacenes.data ?? []).map(a => <MenuItem key={a.id} value={a.id}>{a.nombre}</MenuItem>)}
           </TextField>
           <TextField size="small" label="¿Dónde está? (SKU, nombre o código)" value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') buscar() }}
@@ -482,11 +616,34 @@ export default function WMSMapa() {
         {!!almacen && tab === 3 && <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 3 }}>
             <Stack gap={1}>
-              {(fotos.data ?? []).map((f: any) => {
+              {(estructuras.data ?? []).length > 0 && <Typography sx={{ fontSize: 10.5, letterSpacing: '0.1em', fontWeight: 800, color: 'text.secondary' }}>ESTRUCTURAS DEL LAYOUT</Typography>}
+              {(estructuras.data ?? []).map((e: any) => {
+                const activa = estructura === e.id, pct = e.ocupacion_pct
+                return (
+                  <Paper key={`e${e.id}`} variant="outlined" role="button" aria-label={`Estructura ${e.nombre}`} onClick={() => verEstructura(e.id)}
+                    sx={{ p: 1.25, borderRadius: 2, cursor: 'pointer', bgcolor: activa ? alpha(NEON.cian, 0.06) : undefined,
+                      borderColor: activa ? NEON.cian : undefined, transition: 'all .15s' }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                      <Typography fontSize={13} fontWeight={700} sx={{ color: activa ? NEON.cian : undefined }}>{e.nombre}</Typography>
+                      <Stack direction="row" gap={0.5} alignItems="center">
+                        {e.foto_id && <PhotoCamera sx={{ fontSize: 14, color: '#94A3B8' }} />}
+                        <Architecture sx={{ fontSize: 15, color: activa ? NEON.cian : '#94A3B8' }} />
+                      </Stack>
+                    </Stack>
+                    <Typography fontSize={11.5} sx={{ color: 'text.secondary', fontFamily: 'Consolas, monospace' }}>
+                      {e.niveles_vista}×{e.posiciones} · {e.vinculadas}/{e.niveles_vista * e.posiciones} ubicaciones{e.pasillo ? ` · pasillo ${e.pasillo}` : ''}
+                    </Typography>
+                    <Box sx={{ mt: 0.75, height: 4, borderRadius: 2, bgcolor: alpha('#94A3B8', 0.25), overflow: 'hidden' }}>
+                      <Box sx={{ height: '100%', width: `${Math.min(100, pct ?? 0)}%`, bgcolor: colorPct(pct) }} /></Box>
+                  </Paper>
+                )
+              })}
+              {(estructuras.data ?? []).length > 0 && fotosSueltas.length > 0 && <Typography sx={{ fontSize: 10.5, letterSpacing: '0.1em', fontWeight: 800, color: 'text.secondary', mt: 1 }}>FOTOS SIN ESTRUCTURA</Typography>}
+              {fotosSueltas.map((f: any) => {
                 const pct = ocupacionFoto.get(f.id)
                 const activa = foto === f.id
                 return (
-                  <Paper key={f.id} variant="outlined" role="button" aria-label={`Estantería ${f.nombre}`} onClick={() => setFoto(f.id)}
+                  <Paper key={f.id} variant="outlined" role="button" aria-label={`Estantería ${f.nombre}`} onClick={() => verFoto(f.id)}
                     sx={{ p: 1.25, borderRadius: 2, cursor: 'pointer', bgcolor: activa ? alpha(NEON.cian, 0.06) : undefined,
                       borderColor: activa ? NEON.cian : undefined, transition: 'all .15s' }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -501,11 +658,14 @@ export default function WMSMapa() {
                   </Paper>
                 )
               })}
-              {fotos.data && !fotos.data.length && <Alert severity="info">Cargue la foto frontal de cada estantería.</Alert>}
+              {fotos.data && estructuras.data && !fotos.data.length && !estructuras.data.length && <Alert severity="info" action={<Button size="small" color="inherit" onClick={() => setTab(1)}>Constructor</Button>}>
+                Arme las estanterías en el constructor (o cargue la foto frontal de cada una).</Alert>}
             </Stack>
           </Grid>
           <Grid size={{ xs: 12, md: 9 }}>
-            {foto ? <VistaFoto key={foto} fotoId={foto} almacen={Number(almacen)} productoId={busqueda?.productos?.[0]?.id}
+            {estructura ? <VistaEstructura key={`e${estructura}`} id={estructura} almacen={Number(almacen)} productoId={busqueda?.productos?.[0]?.id}
+              onEditar={() => { setEditar(estructura); setTab(1) }} />
+              : foto ? <VistaFoto key={foto} fotoId={foto} almacen={Number(almacen)} productoId={busqueda?.productos?.[0]?.id}
               onCalibrada={() => qc.invalidateQueries({ queryKey: ['mapa-fotos'] })} />
               : <Alert severity="info" icon={<Straighten />}>Elija una estantería.</Alert>}
           </Grid>

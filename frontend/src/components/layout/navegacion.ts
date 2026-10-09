@@ -21,7 +21,7 @@ export interface SeccionNav {
 }
 
 export interface ModuloNav {
-  clave: 'wms' | 'tms' | 'pos' | 'config'
+  clave: 'wms' | 'tms' | 'pos' | 'wfm' | 'config'
   sigla: string
   nombre: string
   /** Prefijos de ruta que pertenecen al módulo. */
@@ -44,7 +44,8 @@ export const NAVEGACION: ModuloNav[] = [
           { etiqueta: 'Inventario', ruta: '/wms/inventario' },
           { etiqueta: 'Mapa de bodega', ruta: '/wms/mapa' },
           { etiqueta: 'Constructor de bodega', ruta: '/wms/constructor' },
-          { etiqueta: 'Tareas', ruta: '/wms/tareas' },
+          { etiqueta: 'Tareas (supervisor)', ruta: '/wms/tareas' },
+          { etiqueta: 'Frentes de picking', ruta: '/wms/frentes' },
           { etiqueta: 'Estibas', ruta: '/wms/estibas' },
           { etiqueta: 'Cubicaje', ruta: '/wms/cubicaje' },
           { etiqueta: 'Slotting', ruta: '/wms/slotting' },
@@ -57,6 +58,7 @@ export const NAVEGACION: ModuloNav[] = [
           { etiqueta: 'Picking', ruta: '/wms/picking' },
           { etiqueta: 'Olas', ruta: '/wms/olas' },
           { etiqueta: 'Empaque', ruta: '/wms/empaque' },
+          { etiqueta: 'Consolidación y despacho', ruta: '/wms/consolidacion' },
           { etiqueta: 'Despacho', ruta: '/wms/despacho' },
         ],
       },
@@ -91,6 +93,7 @@ export const NAVEGACION: ModuloNav[] = [
         titulo: 'Operación', items: [
           { etiqueta: 'Viajes', ruta: '/tms/viajes' },
           { etiqueta: 'Planeación', ruta: '/tms/planeacion' },
+          { etiqueta: 'Asignación de carga', ruta: '/tms/asignacion-carga' },
           { etiqueta: 'Despachos', ruta: '/tms/despachos' },
           { etiqueta: 'Tracking', ruta: '/tms/tracking' },
         ],
@@ -125,6 +128,26 @@ export const NAVEGACION: ModuloNav[] = [
         titulo: 'Configuración', items: [
           { etiqueta: 'Documentos', ruta: '/tms/documentos' },
           { etiqueta: 'Configuración del TMS', ruta: '/tms/config' },
+        ],
+      },
+    ],
+  },
+  {
+    clave: 'wfm', sigla: 'WFM', nombre: 'Personal', prefijos: ['/personal'], inicio: '/personal', permisos: ['wfm'],
+    secciones: [
+      { titulo: 'Tablero', items: [{ etiqueta: 'Personal en operación', ruta: '/personal', exacta: true }] },
+      { titulo: 'Mi turno', items: [{ etiqueta: 'Mi turno y mis tareas', ruta: '/personal/mi-turno' }] },
+      {
+        titulo: 'Planeación', items: [
+          { etiqueta: 'Programación de estaciones', ruta: '/personal/programacion' },
+          { etiqueta: 'Kiosco de marcación', ruta: '/personal/kiosco' },
+        ],
+      },
+      { titulo: 'Indicadores', items: [{ etiqueta: 'Productividad', ruta: '/personal/productividad' }] },
+      {
+        titulo: 'Configuración', items: [
+          { etiqueta: 'Estaciones de trabajo', ruta: '/personal/estaciones' },
+          { etiqueta: 'Personas y carnés', ruta: '/personal/personas' },
         ],
       },
     ],

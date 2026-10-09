@@ -263,7 +263,11 @@ async def devolver(db: AsyncSession, yo: Usuario, venta_id: int, lineas: List[di
             raise HTTPException(422, f"«{ln.descripcion}»: se pueden devolver hasta "
                                      f"{(d(ln.cantidad) - d(ln.cantidad_devuelta)):g} unidades.")
         f = cant / d(ln.cantidad)
-        base, iva, tot = r2(d(ln.base) * f), r2(d(ln.iva) * f), r2(d(ln.total) * f)
+        # El total devuelto manda y el IVA es lo que falta para llegar a él: si se
+        # redondean los tres por separado, una devolución parcial (1 de 3) puede
+        # quedar con base + IVA ≠ total por un centavo y el asiento no cuadra.
+        tot, base = r2(d(ln.total) * f), r2(d(ln.base) * f)
+        iva = tot - base
         estado = l.get("estado", "BUENO")
         if estado == "BUENO":
             origen = (ln.salidas or [{}])[0]
@@ -289,6 +293,12 @@ async def devolver(db: AsyncSession, yo: Usuario, venta_id: int, lineas: List[di
                                              subtotal=base, impuesto=iva, total=tot))
     if not registro:
         raise HTTPException(422, "Indique qué se devuelve.")
+    if medio_reembolso == "EFECTIVO":
+        # Como en un retiro: no se entrega más efectivo del que hay en la caja.
+        efectivo = d((await resumen_turno(db, turno))["esperado"].get("EFECTIVO", 0))
+        if r2(total) > efectivo:
+            raise HTTPException(422, f"No hay efectivo suficiente en la caja para reembolsar {r2(total):,.0f} "
+                                     f"(hay {efectivo:,.0f}). Reembolse por otro medio o registre un ingreso de caja.")
 
     n_prev = (await db.execute(select(func.count()).select_from(POSDevolucion).where(
         POSDevolucion.venta_id == venta_id))).scalar() or 0

@@ -297,6 +297,10 @@ class CompletarTareaIn(BaseModel):
     ubicacion_id: Optional[int] = None
     ubicacion_codigo: Optional[str] = None
     motivo_desvio: Optional[str] = Field(default=None, max_length=200)
+    # El origen escaneado (ubicación o estiba), si no se confirmó antes.
+    origen_codigo: Optional[str] = Field(default=None, max_length=60)
+    # Reabastecimiento: lo que de verdad se llevó, si fue menos.
+    cantidad: Optional[float] = Field(default=None, gt=0)
 
 
 class CancelarIn(BaseModel):
@@ -310,7 +314,8 @@ async def _tareas_dict(db: AsyncSession, tareas: List[WMSTarea]) -> list:
     skus = await _codigos(db, WMSProducto, WMSProducto.sku, [t.producto_id for t in tareas])
     lotes = await _codigos(db, WMSLote, WMSLote.numero_lote, [t.lote_id for t in tareas])
     lpns = await _codigos(db, WMSContenedor, WMSContenedor.codigo, [t.contenedor_id for t in tareas])
-    gente = await _nombres(db, [t.operario_id for t in tareas])
+    gente = await _nombres(db, [x for t in tareas for x in (t.operario_id, t.aprobada_por_id)])
+    lpns.update(await _codigos(db, WMSContenedor, WMSContenedor.codigo, [t.contenedor_origen_id for t in tareas]))
 
     def minutos(a, b):
         return round((b - a).total_seconds() / 60, 1) if a and b else None
@@ -325,7 +330,12 @@ async def _tareas_dict(db: AsyncSession, tareas: List[WMSTarea]) -> list:
              "iniciada": t.iniciada_en.isoformat() if t.iniciada_en else None,
              "terminada": t.terminada_en.isoformat() if t.terminada_en else None,
              "espera_min": minutos(t.created_at, t.iniciada_en), "ejecucion_min": minutos(t.iniciada_en, t.terminada_en),
-             "notas": t.notas} for t in tareas]
+             "notas": t.notas, "operario_id": t.operario_id,
+             "contenedor_origen": lpns.get(t.contenedor_origen_id), "aprobada_por": gente.get(t.aprobada_por_id),
+             "aprobada": t.aprobada_en.isoformat() if t.aprobada_en else None,
+             "asignada": t.asignada_en.isoformat() if t.asignada_en else None,
+             "origen_confirmado": bool(t.origen_confirmado), "jornada_id": t.jornada_id,
+             "en_curso_min": minutos(t.iniciada_en, op.ahora()) if t.estado == "EN_CURSO" else None} for t in tareas]
 
 
 @router.get("/tareas")
@@ -352,20 +362,33 @@ async def _tarea(db: AsyncSession, tid: int) -> WMSTarea:
 
 @router.post("/tareas/{tid}/iniciar")
 async def iniciar_tarea(tid: int, db: AsyncSession = Depends(get_db), yo: Usuario = Depends(get_current_user)):
+    from app.core import personal as per
+    from app.core import wms_tareas_dirigidas as wtd
     t = await _tarea(db, tid)
-    if t.estado != "PENDIENTE":
-        raise HTTPException(409, f"La tarea está {t.estado.lower()}.")
+    if t.estado not in ("PENDIENTE", "ASIGNADA"):
+        raise HTTPException(409, "La tarea está por aprobar." if t.estado == "POR_APROBAR" else f"La tarea está {t.estado.lower()}.")
+    if t.estado == "ASIGNADA" and t.operario_id and t.operario_id != yo.id:
+        raise HTTPException(409, "La tarea está asignada a otro operario.")
+    j = await per.jornada_abierta(db, yo.id)
     t.estado, t.operario_id, t.iniciada_en = "EN_CURSO", yo.id, op.ahora()
     t.asignada_en = t.asignada_en or t.iniciada_en
+    t.jornada_id = t.jornada_id or (j.id if j else None)
     return (await _tareas_dict(db, [t]))[0]
 
 
 @router.post("/tareas/{tid}/completar")
 async def completar_tarea(tid: int, data: CompletarTareaIn, db: AsyncSession = Depends(get_db),
                           yo: Usuario = Depends(get_current_user)):
+    from app.core import personal as per
+    from app.core import wms_tareas_dirigidas as wtd
+    from app.core import wms_reabastecimiento as reab
     t = await _tarea(db, tid)
-    if t.estado not in ("PENDIENTE", "EN_CURSO"):
-        raise HTTPException(409, f"La tarea está {t.estado.lower()}.")
+    if t.estado not in ("PENDIENTE", "ASIGNADA", "EN_CURSO"):
+        raise HTTPException(409, "La tarea está por aprobar." if t.estado == "POR_APROBAR" else f"La tarea está {t.estado.lower()}.")
+    if data.origen_codigo:
+        await wtd.confirmar_origen(db, t, data.origen_codigo)
+    if (await reab.config(db, t.almacen_id)).exigir_escaneo_origen and t.ubicacion_origen_id and not t.origen_confirmado:
+        raise HTTPException(422, "Escanee primero la ubicación (o la estiba) de origen.")
     ub = await _ubicacion(db, data.ubicacion_id, data.ubicacion_codigo)
     zona = await db.get(WMSZona, ub.zona_id)
     if zona.almacen_id != t.almacen_id:
@@ -382,7 +405,21 @@ async def completar_tarea(tid: int, data: CompletarTareaIn, db: AsyncSession = D
     if t.iniciada_en is None:
         t.iniciada_en, t.operario_id = ahora, yo.id
     t.operario_id = t.operario_id or yo.id
-    if t.contenedor_id:
+    if t.jornada_id is None:
+        j = await per.jornada_abierta(db, t.operario_id)
+        t.jornada_id = j.id if j else None
+    if t.tipo == "REABASTECIMIENTO":
+        cant = data.cantidad or t.cantidad
+        if cant > (t.cantidad or 0) + 1e-9:
+            raise HTTPException(422, f"Se aprobaron {t.cantidad:g}: no lleve más que eso.")
+        await _mover(db, tipo="REABASTECIMIENTO", producto_id=t.producto_id, cantidad=cant, lote_id=t.lote_id,
+                     origen=t.ubicacion_origen_id, destino=ub.id, contenedor_origen=t.contenedor_origen_id,
+                     contenedor_destino=None, usuario_id=yo.id, tarea_id=t.id,
+                     documento_tipo=t.documento_tipo, documento_id=t.documento_id)
+        if cant < (t.cantidad or 0):
+            t.notas = ((t.notas or "") + f" Llevó {cant:g} de {t.cantidad:g}.").strip()
+            t.cantidad = cant
+    elif t.contenedor_id:
         c = await db.get(WMSContenedor, t.contenedor_id)
         await op.mover_contenedor(db, c, ub.id, usuario_id=yo.id, tarea_id=t.id, tipo="UBICACION",
                                   documento_tipo=t.documento_tipo, documento_id=t.documento_id)
@@ -400,7 +437,7 @@ async def completar_tarea(tid: int, data: CompletarTareaIn, db: AsyncSession = D
 async def cancelar_tarea(tid: int, data: CancelarIn, db: AsyncSession = Depends(get_db),
                          _: Usuario = Depends(require_supervisor)):
     t = await _tarea(db, tid)
-    if t.estado in ("COMPLETADA", "CANCELADA"):
+    if t.estado in ("COMPLETADA", "CANCELADA", "RECHAZADA"):
         raise HTTPException(409, f"La tarea ya está {t.estado.lower()}.")
     # La mercancía se queda donde está (en la zona de recepción); cancelar no la mueve.
     t.estado, t.notas, t.terminada_en = "CANCELADA", data.motivo, op.ahora()
@@ -410,7 +447,7 @@ async def cancelar_tarea(tid: int, data: CancelarIn, db: AsyncSession = Depends(
 @router.post("/tareas/{tid}/resugerir")
 async def resugerir(tid: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     t = await _tarea(db, tid)
-    if t.estado not in ("PENDIENTE", "EN_CURSO"):
+    if t.estado not in ("POR_APROBAR", "PENDIENTE", "ASIGNADA", "EN_CURSO"):
         raise HTTPException(409, "Solo se resugiere una tarea abierta.")
     t.ubicacion_sugerida_id, t.razon_sugerencia = await op.sugerir_ubicacion(db, t.almacen_id, t.producto_id, t.lote_id,
                                                                              t.cantidad or 0)

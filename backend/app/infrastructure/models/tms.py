@@ -238,14 +238,15 @@ class TMSViaje(Base, TimestampMixin, SoftDeleteMixin):
         SAEnum(EstadoViajeTMSEnum, name="tms_estado_viaje_enum"),
         nullable=False,
         default=EstadoViajeTMSEnum.PROGRAMADO,
+        index=True,
     )
-    vehiculo_id                = Column(Integer, ForeignKey("tms_vehiculo.id"), nullable=True)
-    conductor_hcm_id           = Column(Integer, ForeignKey("hcm_conductor.id"), nullable=True)
+    vehiculo_id                = Column(Integer, ForeignKey("tms_vehiculo.id"), nullable=True, index=True)
+    conductor_hcm_id           = Column(Integer, ForeignKey("hcm_conductor.id"), nullable=True, index=True)
     conductor_legacy_id        = Column(Integer, ForeignKey("conductores.id"), nullable=True)
     empresa_id                 = Column(Integer, ForeignKey("hcm_empresa.id"), nullable=True)
     generador_id               = Column(Integer, ForeignKey("generadores_carga.id"), nullable=True)
     flete_id                   = Column(Integer, ForeignKey("fletes.id"), nullable=True)
-    wms_despacho_id            = Column(Integer, ForeignKey("wms_despachos.id"), nullable=True)
+    wms_despacho_id            = Column(Integer, ForeignKey("wms_despachos.id"), nullable=True, index=True)
     origen_ciudad              = Column(String(200), nullable=True)
     origen_direccion           = Column(String(300), nullable=True)
     origen_lat                 = Column(Float, nullable=True)
@@ -288,7 +289,7 @@ class TMSParada(Base, TimestampMixin):
     __tablename__ = "tms_parada"
 
     id                       = Column(Integer, primary_key=True, index=True)
-    viaje_id                 = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False)
+    viaje_id                 = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False, index=True)
     secuencia                = Column(Integer, nullable=False)
     tipo                     = Column(
         SAEnum(TipoParadaTMSEnum, name="tms_tipo_parada_enum"),
@@ -320,7 +321,7 @@ class TMSEvento(Base, TimestampMixin):
     __tablename__ = "tms_evento"
 
     id                 = Column(Integer, primary_key=True, index=True)
-    viaje_id           = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False)
+    viaje_id           = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False, index=True)
     parada_id          = Column(Integer, ForeignKey("tms_parada.id"), nullable=True)
     tipo_evento        = Column(
         SAEnum(TipoEventoTMSEnum, name="tms_tipo_evento_enum"),
@@ -367,7 +368,7 @@ class TMSPOD(Base, TimestampMixin):
     __tablename__ = "tms_pod"
 
     id                  = Column(Integer, primary_key=True, index=True)
-    viaje_id            = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False, unique=True)
+    viaje_id            = Column(Integer, ForeignKey("tms_viaje.id"), nullable=False, unique=True, index=True)
     parada_id           = Column(Integer, ForeignKey("tms_parada.id"), nullable=True)
     receptor_nombre     = Column(String(200), nullable=True)
     receptor_documento  = Column(String(50), nullable=True)
@@ -537,3 +538,53 @@ class TMSKPIDiario(Base, TimestampMixin):
     km_vacios             = Column(Float, nullable=False, default=0)
     utilizacion_flota     = Column(Float, nullable=False, default=0)
     conductores_activos   = Column(Integer, nullable=False, default=0)
+
+
+# ─── Solicitudes de transporte y cargue de vehículos (desde el WMS) ────────────
+
+class TMSSolicitudTransporte(Base, TimestampMixin):
+    """Lo que el WMS pide transportar: consolidados con un mismo modo de
+    despacho (y transportadora, si es tercerizado).
+    PENDIENTE → EN_CARGUE → ATENDIDA; o CANCELADA."""
+    __tablename__ = "tms_solicitudes_transporte"
+    id                = Column(Integer, primary_key=True, index=True)
+    codigo            = Column(String(30), nullable=False, unique=True, index=True)
+    almacen_id        = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    modo_despacho     = Column(String(30), nullable=False)
+    transportadora_id = Column(Integer, ForeignKey("wms_transportadoras.id"), nullable=True)
+    estado            = Column(String(12), nullable=False, default="PENDIENTE", index=True)
+    solicitado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    fecha_requerida   = Column(DateTime(timezone=True), nullable=True)
+    notas             = Column(Text, nullable=True)
+
+
+class TMSCargue(Base, TimestampMixin):
+    """El armado de la carga de un vehículo: qué consolidados suben a cuál
+    vehículo (por clic, radiofrecuencia o escáner). Al confirmarlo nacen los
+    despachos del WMS y el viaje del TMS con sus paradas.
+    ARMANDO → CONFIRMADO; o CANCELADO."""
+    __tablename__ = "tms_cargues"
+    id                = Column(Integer, primary_key=True, index=True)
+    codigo            = Column(String(30), nullable=False, unique=True, index=True)
+    almacen_id        = Column(Integer, ForeignKey("wms_almacenes.id"), nullable=False, index=True)
+    modo_despacho     = Column(String(30), nullable=False)
+    vehiculo_id       = Column(Integer, ForeignKey("tms_vehiculo.id"), nullable=True)
+    transportadora_id = Column(Integer, ForeignKey("wms_transportadoras.id"), nullable=True)
+    placa_tercero     = Column(String(20), nullable=True)
+    estado            = Column(String(12), nullable=False, default="ARMANDO", index=True)
+    viaje_id          = Column(Integer, ForeignKey("tms_viaje.id"), nullable=True)
+    creado_por_id     = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    confirmado_en     = Column(DateTime(timezone=True), nullable=True)
+    notas             = Column(Text, nullable=True)
+
+
+class TMSViajeDespacho(Base, TimestampMixin):
+    """Los despachos del WMS que lleva un viaje (uno por orden) y en qué parada
+    se entregan. Un viaje consolidado lleva muchos."""
+    __tablename__ = "tms_viaje_despachos"
+    __table_args__ = (UniqueConstraint("viaje_id", "despacho_id", name="uq_viaje_despacho"),)
+    id             = Column(Integer, primary_key=True, index=True)
+    viaje_id       = Column(Integer, ForeignKey("tms_viaje.id", ondelete="CASCADE"), nullable=False, index=True)
+    despacho_id    = Column(Integer, ForeignKey("wms_despachos.id"), nullable=False, index=True)
+    consolidado_id = Column(Integer, ForeignKey("wms_consolidados.id"), nullable=True)
+    parada_id      = Column(Integer, ForeignKey("tms_parada.id"), nullable=True)

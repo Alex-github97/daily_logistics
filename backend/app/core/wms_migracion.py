@@ -59,6 +59,30 @@ COLUMNAS = [
     ("wms_despachos", "factura_id", "INTEGER"),
     ("wms_despachos", "aviso_factura", "VARCHAR(300)"),
     ("wms_devoluciones", "nota_credito_id", "INTEGER"),
+    ("wms_tareas", "contenedor_origen_id", "INTEGER REFERENCES wms_contenedores(id)"),
+    ("wms_tareas", "aprobada_por_id", "INTEGER REFERENCES usuarios(id)"),
+    ("wms_tareas", "aprobada_en", "TIMESTAMPTZ"),
+    ("wms_tareas", "jornada_id", "INTEGER REFERENCES per_jornadas(id)"),
+    # WFM: las jornadas nacieron en el WMS y pasaron al módulo de personal.
+    ("per_jornadas", "estacion_id", "INTEGER REFERENCES per_estaciones(id) ON DELETE SET NULL"),
+    ("per_jornadas", "origen", "VARCHAR(12)"),
+    # Destino de la orden de salida (obligatorio para consolidar).
+    ("wms_ordenes_salida", "destino", "VARCHAR(80)"),
+    ("wms_ordenes_salida", "destino_ciudad", "VARCHAR(120)"),
+    ("wms_ordenes_salida", "destino_direccion", "VARCHAR(300)"),
+    ("wms_ordenes_salida", "destino_contacto", "VARCHAR(200)"),
+    ("wms_ordenes_salida", "destino_telefono", "VARCHAR(40)"),
+    # Constructor: contorno real de la bodega y elementos de forma libre.
+    ("wms_layouts", "contorno", "JSON"),
+    ("wms_layout_elementos", "forma", "JSON"),
+    # Mapa del TMS: la bodega es el origen y la dirección de compra el destino.
+    ("wms_almacenes", "lat", "DOUBLE PRECISION"),
+    ("wms_almacenes", "lng", "DOUBLE PRECISION"),
+    ("wms_almacenes", "geo_precision", "VARCHAR(15)"),
+    ("wms_ordenes_salida", "destino_lat", "DOUBLE PRECISION"),
+    ("wms_ordenes_salida", "destino_lng", "DOUBLE PRECISION"),
+    ("wms_ordenes_salida", "destino_geo", "VARCHAR(15)"),
+    ("wms_tareas", "origen_confirmado", "BOOLEAN"),
 ]
 
 INDICES = [
@@ -72,11 +96,29 @@ INDICES = [
 ]
 
 
+# Índices de las llaves por las que se buscan los detalles y los viajes. En las
+# tablas que ya existían `create_all` no los crea, y sin ellos cada «líneas de
+# este picking / de esta orden» recorría la tabla entera: con unos miles de
+# documentos la operación se volvía cada vez más lenta (prueba de volumen).
+INDICES_LLAVES = [
+    ("wms_picking_detalles", "tarea_id"), ("wms_ordenes_salida_detalle", "orden_id"),
+    ("wms_recepciones_detalle", "recepcion_id"), ("wms_ordenes_compra_detalle", "orden_id"),
+    ("wms_despachos_detalle", "despacho_id"), ("wms_picking_tareas", "orden_id"),
+    ("wms_producto_empaques", "producto_id"), ("wms_despachos", "orden_id"),
+    ("tms_viaje", "vehiculo_id"), ("tms_viaje", "conductor_hcm_id"), ("tms_viaje", "estado"),
+    ("tms_viaje", "wms_despacho_id"), ("tms_parada", "viaje_id"), ("tms_viaje_despachos", "despacho_id"),
+    ("tms_viaje_despachos", "viaje_id"), ("tms_evento", "viaje_id"), ("tms_pod", "viaje_id"),
+]
+
+
 async def migrar_wms(conn) -> None:
     if not (await conn.execute(text("SELECT to_regclass('wms_inventario_ubicacion')"))).scalar():
         return
     for tabla, columna, tipo in COLUMNAS:
         await conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN IF NOT EXISTS {columna} {tipo}"))
+    for tabla, columna in INDICES_LLAVES:
+        if (await conn.execute(text(f"SELECT to_regclass('{tabla}')"))).scalar():
+            await conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{tabla}_{columna} ON {tabla} ({columna})"))
 
     # 2. Fusionar filas repetidas y cambiar la llave.
     repetidas = (await conn.execute(text("""

@@ -15,6 +15,8 @@ import {
   Avatar,
   alpha,
   Grid,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import {
   Search,
@@ -86,6 +88,8 @@ interface ViajeTracking {
   ciudadActual: string
   latActual: number
   lngActual: number
+  origenPunto: { lat: number; lng: number } | null
+  destinoPunto: { lat: number; lng: number } | null
   paradas: Parada[]
   eventos: EventoTracking[]
 }
@@ -102,6 +106,10 @@ interface ViajeAPI {
   vehiculo_placa: string | null
   fecha_real_cargue: string | null
   fecha_programada_entrega: string | null
+  origen_lat?: number | null
+  origen_lng?: number | null
+  destino_lat?: number | null
+  destino_lng?: number | null
 }
 
 interface EventoAPI {
@@ -118,6 +126,7 @@ interface ParadaAPI {
   id: number
   secuencia: number
   ciudad: string
+  direccion?: string | null
   estado: string
   lat: number | null
   lng: number | null
@@ -369,20 +378,27 @@ function MapaDelViaje({ viaje, eventos, paradas, entregaPrevista }: {
     .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
     .map(e => ({ lat: e.lat as number, lng: e.lng as number }))
 
-  const origen = paradas.find(p => p.secuencia === 1)
-  const destino = paradas.length
-    ? paradas.reduce((a, b) => (b.secuencia > a.secuencia ? b : a))
-    : undefined
+  // Origen: la bodega (primera parada). Destino: la última dirección de compra.
+  // Si las paradas aún no tienen punto, se usa el del viaje.
+  const enOrden = paradas.slice().sort((a, b) => a.secuencia - b.secuencia)
+  const origen = enOrden[0]
+  const destino = enOrden.length > 1 ? enOrden[enOrden.length - 1] : undefined
+  // La bodega se nombra por su nombre («CEDI Bogotá — Cra 68…»); una entrega, por la dirección de compra.
+  const rotulo = (p: ParadaAPI) => p.direccion ? `${p.ciudad} · ${p.direccion.split(' — ')[0]}` : p.ciudad
   const ultimo = recorrido.length ? recorrido[recorrido.length - 1] : null
+  const intermedias = enOrden.slice(1, -1)
+    .filter(p => p.lat != null && p.lng != null)
+    .map(p => ({ lat: p.lat as number, lng: p.lng as number, etiqueta: rotulo(p), numero: p.secuencia - 1,
+                 hecha: (ESTADO_PARADA[p.estado] ?? 'PENDIENTE') === 'COMPLETADA' }))
 
   // El avance se mide por DISTANCIA desde la última posición reportada, no por
   // reloj. Medido por reloj, un viaje demorado marcaba 100% mientras el camión
   // aparecía a mitad de camino en el mismo panel: la barra y el mapa decían
   // cosas distintas del mismo viaje.
   const puntoOrigen = origen && origen.lat != null && origen.lng != null
-    ? { lat: origen.lat, lng: origen.lng } : null
+    ? { lat: origen.lat, lng: origen.lng } : viaje.origenPunto
   const puntoDestino = destino && destino.lat != null && destino.lng != null
-    ? { lat: destino.lat, lng: destino.lng } : null
+    ? { lat: destino.lat, lng: destino.lng } : viaje.destinoPunto
   const avanceReal = avanceSobreRuta(puntoOrigen, ultimo, puntoDestino)
 
   // El retraso es un dato aparte, y se dice aparte: un viaje puede ir al 40% del
@@ -421,10 +437,9 @@ function MapaDelViaje({ viaje, eventos, paradas, entregaPrevista }: {
       </Stack>
 
       <MapaSeguimiento
-        origen={origen && origen.lat != null && origen.lng != null
-          ? { lat: origen.lat, lng: origen.lng, etiqueta: origen.ciudad } : null}
-        destino={destino && destino.lat != null && destino.lng != null
-          ? { lat: destino.lat, lng: destino.lng, etiqueta: destino.ciudad } : null}
+        origen={puntoOrigen ? { ...puntoOrigen, etiqueta: origen ? rotulo(origen) : viaje.origen } : null}
+        destino={puntoDestino ? { ...puntoDestino, etiqueta: destino ? rotulo(destino) : viaje.destino } : null}
+        paradas={intermedias}
         recorrido={recorrido}
         actual={ultimo
           ? { ...ultimo, etiqueta: `${viaje.codigo} · ${viaje.placa}` } : null}
@@ -622,7 +637,7 @@ function TripDetail({ viaje, viajeId, entregaPrevista }: {
     .slice()
     .sort((a, b) => a.secuencia - b.secuencia)
     .map(p => ({
-      secuencia: p.secuencia, ciudad: p.ciudad,
+      secuencia: p.secuencia, ciudad: p.direccion ? `${p.ciudad} · ${p.direccion.split(' — ')[0]}` : p.ciudad,
       estado: ESTADO_PARADA[p.estado] ?? 'PENDIENTE',
       horaEstimada: hora(p.tiempo_estimado_llegada),
       horaReal: p.tiempo_real_llegada ? hora(p.tiempo_real_llegada) : null,
@@ -690,14 +705,15 @@ function TripDetail({ viaje, viajeId, entregaPrevista }: {
 
 export default function TMSTracking() {
   const [search, setSearch] = useState('')
+  const [ver, setVer] = useState<'EN_TRANSITO' | 'ASIGNADO' | 'PROGRAMADO'>('EN_TRANSITO')
   const [selectedCodigo, setSelectedCodigo] = useState<string | null>(null)
 
   // Los viajes que van rodando. Se refresca solo: la pantalla dice «en tiempo
   // real» y quedarse con la foto del momento en que se abrió sería mentir.
   const { data: crudos = [], isLoading } = useQuery<ViajeAPI[]>({
-    queryKey: ['tms-tracking'],
+    queryKey: ['tms-tracking', ver],
     queryFn: () => api.get('/tms/viajes',
-      { params: { estado: 'EN_TRANSITO', per_page: 100 } })
+      { params: { estado: ver, per_page: 100 } })
       .then((r: { data: unknown }) => listaDe<ViajeAPI>(r.data)),
     refetchInterval: 60_000,
   })
@@ -717,6 +733,8 @@ export default function TMSTracking() {
       velocidadActual: 0,
       ciudadActual: v.destino_ciudad ?? '—',
       latActual: 0, lngActual: 0,
+      origenPunto: v.origen_lat != null && v.origen_lng != null ? { lat: v.origen_lat, lng: v.origen_lng } : null,
+      destinoPunto: v.destino_lat != null && v.destino_lng != null ? { lat: v.destino_lat, lng: v.destino_lng } : null,
       paradas: [], eventos: [],
     } as ViajeTracking,
   })), [crudos])
@@ -755,7 +773,7 @@ export default function TMSTracking() {
                 Tracking en Tiempo Real
               </Typography>
               <Typography variant="caption" sx={{ color: '#64748B', fontSize: 11 }}>
-                {viajes.length} viajes en tránsito · TMS — Módulo de Seguimiento
+                {viajes.length} {ver === 'EN_TRANSITO' ? 'viajes en tránsito' : ver === 'ASIGNADO' ? 'viajes por salir' : 'viajes programados'} · TMS — Módulo de Seguimiento
               </Typography>
             </Box>
           </Stack>
@@ -777,6 +795,11 @@ export default function TMSTracking() {
             }}
           >
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: '#E5E7EB' }}>
+              <ToggleButtonGroup size="small" exclusive fullWidth value={ver} onChange={(_, v) => { if (v) { setVer(v); setSelectedCodigo(null) } }} sx={{ mb: 1.25 }}>
+                <ToggleButton value="EN_TRANSITO" sx={{ textTransform: 'none', fontSize: 12 }}>En ruta</ToggleButton>
+                <ToggleButton value="ASIGNADO" sx={{ textTransform: 'none', fontSize: 12 }}>Por salir</ToggleButton>
+                <ToggleButton value="PROGRAMADO" sx={{ textTransform: 'none', fontSize: 12 }}>Programados</ToggleButton>
+              </ToggleButtonGroup>
               <TextField
                 fullWidth
                 size="small"
@@ -808,7 +831,7 @@ export default function TMSTracking() {
                   <Typography variant="body2" sx={{ color: '#64748B', textAlign: 'center', mt: 4 }}>
                     {search
                       ? 'No se encontraron viajes con ese criterio'
-                      : 'Ningún viaje en tránsito en este momento'}
+                      : ver === 'EN_TRANSITO' ? 'Ningún viaje en tránsito en este momento' : 'No hay viajes en este estado'}
                   </Typography>
                 ) : (
                   filtered.map(({ api: v, vista }) => (

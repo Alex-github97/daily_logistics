@@ -143,6 +143,8 @@ async def crear_traslado(db: AsyncSession, yo: Usuario, data: TrasladoIn) -> WMS
             estado=EstadoViajeTMSEnum.PROGRAMADO, origen_ciudad=ori.ciudad,
             origen_direccion=f"{ori.nombre} — {ori.direccion or ''}".strip(" —"), destino_ciudad=des.ciudad,
             destino_direccion=f"{des.nombre} — {des.direccion or ''}".strip(" —"),
+            # Las dos bodegas en el mapa del TMS (origen y destino del traslado).
+            origen_lat=ori.lat, origen_lng=ori.lng, destino_lat=des.lat, destino_lng=des.lng,
             peso_kg=round(peso, 2) or None, volumen_m3=round(volumen, 3) or None, num_entregas=1,
             fecha_programada_cargue=datetime.now(timezone.utc),
             descripcion_carga=f"Traslado {t.numero}: " + "; ".join(nombres)[:900],

@@ -139,6 +139,8 @@ class WMSAlmacenCreate(BaseModel):
     pais: Optional[str] = None
     flujo_recepcion: str = Field(default="DIRECTO", pattern="^(DIRECTO|DIRIGIDO)$")
     activo: bool = True
+    lat: Optional[float] = Field(None, ge=-90, le=90)        # punto fijado a mano en el mapa
+    lng: Optional[float] = Field(None, ge=-180, le=180)
 
 class WMSAlmacenUpdate(BaseModel):
     codigo: Optional[str] = None
@@ -148,12 +150,18 @@ class WMSAlmacenUpdate(BaseModel):
     pais: Optional[str] = None
     flujo_recepcion: Optional[str] = Field(default=None, pattern="^(DIRECTO|DIRIGIDO)$")
     activo: Optional[bool] = None
+    lat: Optional[float] = Field(None, ge=-90, le=90)
+    lng: Optional[float] = Field(None, ge=-180, le=180)
+    reubicar: bool = False                                  # volver a ubicar desde la dirección
 
 class WMSAlmacenResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int; codigo: str; nombre: str
     direccion: Optional[str]; ciudad: Optional[str]; pais: Optional[str]; activo: bool
     flujo_recepcion: str = "DIRECTO"
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    geo_precision: Optional[str] = None
     created_at: Optional[datetime] = None
 
 
