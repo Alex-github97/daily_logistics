@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 uploads/
+
+# Respaldos de bases de datos de desarrollo (contienen datos; nunca se suben)
+backups_desarrollo/
