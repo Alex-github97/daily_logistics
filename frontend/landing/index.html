@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Logistics · Almacén, transporte y ventas en línea en una sola plataforma</title>
+<meta name="description" content="Daily Logistics conecta tu bodega (WMS), tu flota (TMS), tu punto de venta y tus tiendas en línea —Mercado Libre, Shopify, WooCommerce, VTEX y Rappi— con inventario, trazabilidad y facturación en tiempo real.">
+<meta property="og:title" content="Daily Logistics · La operación logística de cada día, en un solo lugar">
+<meta property="og:description" content="WMS, TMS, punto de venta, personal operativo y canales de venta conectados en tiempo real.">
+<meta property="og:image" content="/landing-img/bodega3d.jpg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --abismo:#05070F; --tinta:#0B1120; --carbon:#1E293B; --grafito:#475569; --acero:#94A3B8;
+    --niebla:#E2E8F0; --bruma:#F4F6FB; --lienzo:#FFFFFF;
+    --acento:#4F46E5; --profundo:#3730A3; --violeta:#7C3AED; --cian:#22D3EE; --cian-osc:#0891B2; --vapor:#EEF2FF;
+    --exito:#16A34A; --alerta:#D97706;
+    --degradado:linear-gradient(100deg,#4F46E5 0%,#7C3AED 50%,#06B6D4 100%);
+    --radio:20px; --sombra:0 20px 50px -20px rgba(15,23,42,.25);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:84px}
+  body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--tinta);
+       background:var(--lienzo);-webkit-font-smoothing:antialiased;line-height:1.6;overflow-x:hidden}
+  img{max-width:100%;height:auto;display:block}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  .envoltura{width:min(1180px,100% - 40px);margin-inline:auto}
+  section{padding:104px 0}
+
+  /* ── Cabecera ── */
+  header{position:fixed;inset:0 0 auto;z-index:50;transition:background .25s,box-shadow .25s,border-color .25s;border-bottom:1px solid transparent}
+  header.solida{background:rgba(5,7,15,.86);backdrop-filter:blur(14px);border-color:rgba(255,255,255,.08)}
+  .barra{display:flex;align-items:center;gap:28px;height:72px}
+  .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;color:#fff;letter-spacing:-.02em}
+  .logo b{font-weight:800}
+  .logo span{color:var(--cian);font-weight:500}
+  .logo i{color:var(--cian);font-style:normal}
+  nav{display:flex;gap:26px;margin-left:auto;font-size:14px;font-weight:600;color:rgba(255,255,255,.72)}
+  nav a:hover{color:#fff}
+  .acciones{display:flex;gap:10px;align-items:center}
+  .boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:999px;
+         font-weight:700;font-size:14px;transition:transform .15s,box-shadow .15s,background .15s;white-space:nowrap;cursor:pointer;border:0}
+  .boton:hover{transform:translateY(-1px)}
+  .boton.primario{background:var(--degradado);color:#fff;box-shadow:0 10px 30px -10px rgba(79,70,229,.7)}
+  .boton.fantasma{color:#fff;border:1px solid rgba(255,255,255,.22)}
+  .boton.fantasma:hover{background:rgba(255,255,255,.08)}
+  .boton.claro{background:#fff;color:var(--tinta);border:1px solid var(--niebla)}
+  .menu-movil{display:none;margin-left:auto;background:none;border:0;color:#fff;font-size:26px;cursor:pointer}
+
+  /* ── Héroe ── */
+  .heroe{position:relative;background:var(--abismo);color:#fff;padding:150px 0 0;overflow:hidden}
+  .heroe::before{content:"";position:absolute;inset:0;
+    background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+    background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 75%)}
+  .heroe::after{content:"";position:absolute;width:900px;height:900px;left:50%;top:-420px;transform:translateX(-50%);
+    background:radial-gradient(circle,rgba(124,58,237,.38),rgba(79,70,229,.18) 40%,transparent 68%);pointer-events:none}
+  .heroe .envoltura{position:relative;z-index:1;text-align:center}
+  .lema{display:inline-flex;align-items:center;gap:10px;padding:7px 16px 7px 8px;border-radius:999px;font-size:12.5px;font-weight:600;
+        background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+  .lema b{background:var(--degradado);padding:3px 10px;border-radius:999px;font-size:11px;letter-spacing:.06em}
+  h1{font-size:clamp(2.2rem,5.4vw,4rem);line-height:1.06;font-weight:800;letter-spacing:-.035em;margin:26px auto 0;max-width:19ch;text-wrap:balance}
+  h1 em{font-style:normal;background:linear-gradient(100deg,#A5B4FC,#C4B5FD 45%,#67E8F9);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .bajada{margin:24px auto 0;max-width:60ch;font-size:clamp(1rem,2vw,1.18rem);color:rgba(255,255,255,.7)}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .sellos{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:26px;font-size:13px;color:rgba(255,255,255,.6)}
+  .sellos span::before{content:"✓";color:var(--cian);font-weight:800;margin-right:7px}
+  .escena{position:relative;margin:64px auto 0;max-width:1080px}
+  .ventana{border-radius:18px 18px 0 0;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-bottom:0;
+           box-shadow:0 -10px 80px -10px rgba(79,70,229,.45);background:#0F172A}
+  .ventana .cromo{display:flex;align-items:center;gap:7px;padding:11px 16px;background:#111827;border-bottom:1px solid rgba(255,255,255,.08)}
+  .ventana .cromo i{width:10px;height:10px;border-radius:50%;background:#334155}
+  .ventana video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:#E8EDF3}
+  .ventana .cromo span{margin-left:14px;font-size:12px;color:rgba(255,255,255,.45)}
+  .flotante{position:absolute;background:rgba(255,255,255,.97);color:var(--tinta);border-radius:16px;padding:14px 16px;
+            box-shadow:0 24px 50px -16px rgba(2,6,23,.55);text-align:left;font-size:13px;width:250px;animation:flotar 6s ease-in-out infinite}
+  .flotante small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--acero);margin-bottom:4px}
+  .flotante b{font-size:14px}
+  .flotante .pastilla{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+  .f1{left:-70px;top:22%}.f2{right:-60px;top:12%;animation-delay:-2s}.f3{right:-40px;bottom:16%;animation-delay:-4s}
+  @keyframes flotar{50%{transform:translateY(-10px)}}
+
+  /* ── Franja de integraciones ── */
+  .franja{background:var(--tinta);color:#fff;padding:34px 0}
+  .franja .envoltura{display:flex;align-items:center;gap:30px;flex-wrap:wrap;justify-content:center}
+  .franja p{font-size:12.5px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.04em}
+  .marcas{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .marca{padding:9px 18px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-weight:700;font-size:14px}
+
+  /* ── Encabezados de sección ── */
+  .rotulo{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;
+          text-transform:uppercase;color:var(--acento);margin-bottom:14px}
+  h2{font-size:clamp(1.8rem,3.8vw,2.75rem);line-height:1.12;font-weight:800;letter-spacing:-.03em;max-width:22ch;text-wrap:balance}
+  .intro{margin-top:16px;color:var(--grafito);max-width:64ch;font-size:1.06rem}
+  .centro{text-align:center}.centro h2,.centro .intro{margin-inline:auto}
+
+  /* ── Problema ── */
+  .problema{background:var(--bruma)}
+  .contraste{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:48px}
+  .lado{border-radius:var(--radio);padding:32px;background:#fff;border:1px solid var(--niebla)}
+  .lado.bien{background:var(--tinta);color:#fff;border:0;position:relative;overflow:hidden}
+  .lado.bien::after{content:"";position:absolute;right:-80px;top:-80px;width:260px;height:260px;border-radius:50%;
+                    background:radial-gradient(circle,rgba(34,211,238,.25),transparent 70%)}
+  .lado h3{font-size:1.15rem;margin-bottom:18px}
+  .lado li{list-style:none;padding:9px 0 9px 30px;position:relative;font-size:.97rem;color:var(--grafito);border-top:1px solid var(--niebla)}
+  .lado.bien li{color:rgba(255,255,255,.82);border-color:rgba(255,255,255,.1)}
+  .lado li::before{content:"✕";position:absolute;left:4px;color:#DC2626;font-weight:800}
+  .lado.bien li::before{content:"✓";color:var(--cian)}
+
+  /* ── Módulos ── */
+  .modulos{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:52px}
+  .modulo{border:1px solid var(--niebla);border-radius:var(--radio);padding:28px;background:#fff;transition:transform .2s,box-shadow .2s,border-color .2s}
+  .modulo:hover{transform:translateY(-4px);box-shadow:var(--sombra);border-color:#C7D2FE}
+  .icono{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--vapor);color:var(--acento);margin-bottom:18px}
+  .icono svg{width:24px;height:24px}
+  .modulo .sigla{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--cian-osc);letter-spacing:.1em}
+  .modulo h3{font-size:1.2rem;margin:2px 0 10px}
+  .modulo p{color:var(--grafito);font-size:.95rem}
+  .modulo ul{margin-top:16px;display:grid;gap:7px}
+  .modulo li{list-style:none;font-size:.9rem;color:var(--carbon);padding-left:22px;position:relative}
+  .modulo li::before{content:"";position:absolute;left:2px;top:.62em;width:8px;height:8px;border-radius:3px;background:var(--degradado)}
+
+  /* ── Flujo ── */
+  .flujo{background:var(--abismo);color:#fff;position:relative;overflow:hidden}
+  .flujo .intro{color:rgba(255,255,255,.65)}
+  .flujo h2{color:#fff}
+  .pasos{display:grid;grid-template-columns:repeat(7,1fr);gap:0;margin-top:60px;position:relative}
+  .pasos::before{content:"";position:absolute;left:7%;right:7%;top:27px;height:2px;background:var(--degradado);opacity:.6}
+  .paso{text-align:center;padding:0 8px;position:relative}
+  .paso .n{width:56px;height:56px;border-radius:50%;margin:0 auto 18px;display:grid;place-items:center;background:var(--tinta);
+           border:2px solid rgba(165,180,252,.5);font-weight:800;font-size:15px;position:relative;z-index:1}
+  .paso:last-child .n{background:var(--degradado);border:0}
+  .paso h4{font-size:.95rem;margin-bottom:6px}
+  .paso p{font-size:.82rem;color:rgba(255,255,255,.6);line-height:1.5}
+  .paso .donde{display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+               padding:3px 8px;border-radius:6px;background:rgba(34,211,238,.12);color:var(--cian)}
+
+  /* ── Vitrina ── */
+  .vitrina{display:grid;grid-template-columns:1fr 1.25fr;gap:64px;align-items:center;margin-top:90px}
+  .vitrina:first-of-type{margin-top:56px}
+  .vitrina.invertida{grid-template-columns:1.25fr 1fr}
+  .vitrina.invertida .texto{order:2}
+  .vitrina h3{font-size:clamp(1.4rem,2.6vw,1.9rem);line-height:1.2;letter-spacing:-.025em;font-weight:800}
+  .vitrina .texto p{color:var(--grafito);margin-top:14px}
+  .vitrina ul{margin-top:20px;display:grid;gap:12px}
+  .vitrina li{list-style:none;display:flex;gap:12px;font-size:.95rem;color:var(--carbon)}
+  .vitrina li b{flex-shrink:0;width:24px;height:24px;border-radius:8px;background:var(--vapor);color:var(--acento);display:grid;place-items:center;font-size:12px}
+  .captura{border-radius:18px;overflow:hidden;border:1px solid var(--niebla);box-shadow:var(--sombra);background:#fff}
+  .captura .cromo{display:flex;gap:6px;padding:10px 14px;background:var(--bruma);border-bottom:1px solid var(--niebla)}
+  .captura .cromo i{width:9px;height:9px;border-radius:50%;background:#CBD5E1}
+
+  /* ── Integraciones ── */
+  .integraciones{background:var(--bruma)}
+  .rejilla-int{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:48px}
+  .int{background:#fff;border:1px solid var(--niebla);border-radius:16px;padding:22px}
+  .int h4{font-size:1.02rem;display:flex;align-items:center;gap:10px}
+  .int h4 i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800;color:#fff}
+  .int p{font-size:.86rem;color:var(--grafito);margin-top:10px}
+  .int .tipo{display:inline-block;margin-top:12px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+             color:var(--cian-osc);background:#ECFEFF;padding:3px 9px;border-radius:6px}
+  .sincroniza{margin-top:28px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .sinc{border-radius:16px;padding:20px;background:var(--tinta);color:#fff}
+  .sinc b{display:block;font-size:.95rem;margin-bottom:6px}
+  .sinc span{font-size:.84rem;color:rgba(255,255,255,.65)}
+
+  /* ── Para quién ── */
+  .negocios{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:52px}
+  .negocio{border-radius:var(--radio);padding:28px;border:1px solid var(--niebla);position:relative;overflow:hidden;background:#fff}
+  .negocio .etiqueta{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--acento);font-weight:600}
+  .negocio h3{font-size:1.15rem;margin:8px 0 10px}
+  .negocio p{font-size:.93rem;color:var(--grafito)}
+  .negocio .usa{margin-top:16px;display:flex;flex-wrap:wrap;gap:6px}
+  .negocio .usa span{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--bruma);color:var(--carbon)}
+
+  /* ── Beneficios ── */
+  .beneficios{background:var(--tinta);color:#fff}
+  .beneficios h2{color:#fff}.beneficios .intro{color:rgba(255,255,255,.65)}
+  .cifras{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:52px}
+  .cifra{border-radius:18px;padding:26px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09)}
+  .cifra b{display:block;font-size:2.2rem;font-weight:800;letter-spacing:-.03em;background:linear-gradient(100deg,#A5B4FC,#67E8F9);
+           -webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
+  .cifra span{display:block;margin-top:10px;font-size:.88rem;color:rgba(255,255,255,.7)}
+  .lista-ben{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 40px;margin-top:56px}
+  .ben h4{font-size:1rem;display:flex;gap:10px;align-items:center}
+  .ben h4::before{content:"";width:8px;height:8px;border-radius:3px;background:var(--cian);flex-shrink:0}
+  .ben p{font-size:.9rem;color:rgba(255,255,255,.62);margin-top:6px;padding-left:18px}
+
+  /* ── Confianza ── */
+  .confianza{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:48px}
+  .conf{padding:22px;border-radius:16px;border:1px solid var(--niebla)}
+  .conf h4{font-size:.98rem;margin-bottom:8px}
+  .conf p{font-size:.87rem;color:var(--grafito)}
+
+  /* ── Planes ── */
+  .planes-sec{background:var(--bruma)}
+  .planes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:52px;align-items:stretch}
+  .plan{background:#fff;border:1px solid var(--niebla);border-radius:var(--radio);padding:30px;display:flex;flex-direction:column}
+  .plan.destacado{border:2px solid var(--acento);box-shadow:0 30px 60px -30px rgba(79,70,229,.5);position:relative}
+  .plan.destacado::before{content:"Recomendado";position:absolute;top:-13px;left:30px;background:var(--degradado);color:#fff;
+                          font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px}
+  .plan h3{font-size:1.25rem}
+  .plan .para{font-size:.88rem;color:var(--grafito);margin-top:6px;min-height:3em}
+  .plan .volumen{margin:20px 0 6px;font-size:1.6rem;font-weight:800;letter-spacing:-.03em}
+  .plan .volumen small{display:block;font-size:.78rem;font-weight:500;color:var(--acero);letter-spacing:0}
+  .plan ul{margin:18px 0 26px;display:grid;gap:9px;flex:1}
+  .plan li{list-style:none;font-size:.9rem;color:var(--carbon);padding-left:24px;position:relative}
+  .plan li::before{content:"✓";position:absolute;left:0;color:var(--acento);font-weight:800}
+  .plan .boton{width:100%}
+  .aparte{margin-top:26px;text-align:center;font-size:.88rem;color:var(--grafito)}
+
+  /* ── Preguntas ── */
+  .preguntas{max-width:820px;margin:44px auto 0;display:grid;gap:12px}
+  details{border:1px solid var(--niebla);border-radius:14px;padding:18px 22px;background:#fff}
+  details[open]{border-color:#C7D2FE;box-shadow:0 10px 30px -20px rgba(79,70,229,.4)}
+  summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:16px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font-size:22px;line-height:1;color:var(--acento);transition:transform .2s}
+  details[open] summary::after{transform:rotate(45deg)}
+  details p{margin-top:12px;color:var(--grafito);font-size:.95rem}
+
+  /* ── Llamado final y pie ── */
+  .final{background:var(--abismo);color:#fff;text-align:center;position:relative;overflow:hidden}
+  .final::before{content:"";position:absolute;inset:auto 0 -380px;margin:auto;width:900px;height:700px;
+                 background:radial-gradient(circle,rgba(79,70,229,.45),transparent 65%)}
+  .final .envoltura{position:relative}
+  .final h2{color:#fff;margin-inline:auto;max-width:20ch}
+  .final .intro{color:rgba(255,255,255,.68);margin-inline:auto}
+  .formulario{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:640px;margin:40px auto 0;text-align:left}
+  .formulario input,.formulario select,.formulario textarea{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.16);
+       background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:.95rem}
+  .formulario select option{color:var(--tinta)}
+  .formulario textarea{grid-column:1/-1;min-height:96px;resize:vertical}
+  .formulario input::placeholder,.formulario textarea::placeholder{color:rgba(255,255,255,.45)}
+  .formulario .boton{grid-column:1/-1;padding:15px}
+  .pie{background:var(--abismo);color:rgba(255,255,255,.55);border-top:1px solid rgba(255,255,255,.08);padding:44px 0;font-size:.88rem}
+  .pie .envoltura{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+  .pie nav{margin:0;gap:22px}
+
+  /* ── Aparición al desplazar ── */
+  .aparece{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+  .aparece.visible{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.aparece{opacity:1;transform:none}.flotante{animation:none}html{scroll-behavior:auto}}
+
+  /* ── Responsivo ── */
+  @media (max-width:1080px){
+    .modulos,.negocios,.planes{grid-template-columns:repeat(2,1fr)}
+    .rejilla-int,.sincroniza,.cifras,.confianza{grid-template-columns:repeat(2,1fr)}
+    .lista-ben{grid-template-columns:repeat(2,1fr)}
+    .pasos{grid-template-columns:repeat(4,1fr);row-gap:40px}.pasos::before{display:none}
+    .f1,.f2,.f3{display:none}
+  }
+  @media (max-width:820px){
+    nav,.acciones .fantasma{display:none}
+    .menu-movil{display:block}
+    header.abierto nav{display:flex;position:absolute;top:72px;left:0;right:0;flex-direction:column;gap:0;background:var(--abismo);padding:10px 20px 20px}
+    header.abierto nav a{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+    .contraste,.vitrina,.vitrina.invertida{grid-template-columns:1fr;gap:32px}
+    .vitrina.invertida .texto{order:0}
+    section{padding:76px 0}
+  }
+  @media (max-width:560px){
+    .modulos,.negocios,.planes,.rejilla-int,.sincroniza,.cifras,.confianza,.lista-ben,.formulario{grid-template-columns:1fr}
+    .pasos{grid-template-columns:repeat(2,1fr)}
+    .acciones .primario{display:none}
+    .heroe{padding-top:120px}
+  }
+</style>
+</head>
+<body>
+
+<header id="cabecera">
+  <div class="envoltura barra">
+    <a href="#inicio" class="logo" aria-label="Daily Logistics">
+      <img src="/favicon.svg" alt="" width="34" height="34"><span><b style="color:#fff">daily</b>logistics<i>.</i></span>
+    </a>
+    <nav aria-label="Secciones">
+      <a href="#plataforma">Plataforma</a>
+      <a href="#flujo">Cómo funciona</a>
+      <a href="#integraciones">Integraciones</a>
+      <a href="#para-quien">Para quién</a>
+      <a href="#planes">Planes</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+    <div class="acciones">
+      <a class="boton fantasma" href="/">Ingresar</a>
+      <a class="boton primario" href="#contacto">Solicitar demo</a>
+    </div>
+    <button class="menu-movil" aria-label="Abrir menú" onclick="document.getElementById('cabecera').classList.toggle('abierto')">☰</button>
+  </div>
+</header>
+
+<!-- ═══ Héroe ═══ -->
+<section class="heroe" id="inicio">
+  <div class="envoltura">
+    <span class="lema"><b>NUEVO</b> Pedidos de Mercado Libre, Shopify, VTEX y Rappi directo al picking</span>
+    <h1>Tu bodega, tu flota y tus ventas en línea, <em>conectadas en tiempo real</em></h1>
+    <p class="bajada">Daily Logistics une almacén (WMS), transporte (TMS), punto de venta, personal operativo y tus tiendas en línea en una sola plataforma. Cada unidad se sigue desde que entra a la bodega hasta que llega a la puerta del cliente.</p>
+    <div class="cta">
+      <a class="boton primario" href="#contacto">Solicitar una demo</a>
+      <a class="boton fantasma" href="#flujo">Ver cómo funciona →</a>
+    </div>
+    <div class="sellos">
+      <span>Multibodega y multiempresa</span>
+      <span>Facturación con resolución DIAN</span>
+      <span>Trazabilidad por lote y vencimiento</span>
+      <span>En la nube, desde cualquier dispositivo</span>
+    </div>
+    <div class="escena">
+      <div class="ventana">
+        <div class="cromo"><i></i><i></i><i></i><span>daily logistics · Bodega virtual 3D · recorrido en vivo</span></div>
+        <video src="/landing-img/recorrido-bodega.mp4" poster="/landing-img/recorrido-bodega-poster.jpg" autoplay muted loop playsinline preload="auto" width="1280" height="720" aria-label="Recorrido por la bodega virtual en 3D de Daily Logistics: vista aérea y paso entre las estanterías"></video>
+      </div>
+      <div class="flotante f1"><small>Mercado Libre · pedido nuevo</small><b>#2000014 → picking</b><br>Inventario reservado por FEFO<span class="pastilla" style="background:#EEF2FF;color:#4F46E5">Comprometido</span></div>
+      <div class="flotante f2"><small>TMS · viaje VJ-0003</small><b>Entregado en Medellín</b><br>Prueba de entrega con firma<span class="pastilla" style="background:#DCFCE7;color:#15803D">OTIF a tiempo</span></div>
+      <div class="flotante f3"><small>Inventario</small><b>Kárdex = existencias</b><br>Cada movimiento con usuario y documento<span class="pastilla" style="background:#ECFEFF;color:#0E7490">Trazable</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Franja de canales ═══ -->
+<div class="franja">
+  <div class="envoltura">
+    <p>SE CONECTA CON TUS CANALES DE VENTA</p>
+    <div class="marcas">
+      <span class="marca">Mercado Libre</span><span class="marca">Shopify</span><span class="marca">WooCommerce</span>
+      <span class="marca">VTEX</span><span class="marca">Rappi</span><span class="marca">API y webhooks</span><span class="marca">Excel / CSV</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Problema ═══ -->
+<section class="problema">
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo">El problema</span>
+      <h2>La operación diaria no cabe en cinco sistemas distintos</h2>
+      <p class="intro">Una hoja de cálculo para el inventario, otra para los despachos, el marketplace en otra pestaña y la facturación aparte. Cada salto entre sistemas es un error esperando a pasar.</p>
+    </div>
+    <div class="contraste">
+      <div class="lado aparece">
+        <h3>Así se trabaja hoy</h3>
+        <ul>
+          <li>Vendes en línea algo que ya no está en la bodega</li>
+          <li>El inventario del sistema no coincide con el de la estantería</li>
+          <li>Nadie sabe en qué vehículo va un pedido ni cuándo llega</li>
+          <li>Los pedidos de cada marketplace se digitan a mano</li>
+          <li>Un lote vencido sale antes que uno nuevo</li>
+          <li>Tus clientes llaman a preguntar cuánto tienen y dónde va su pedido</li>
+        </ul>
+      </div>
+      <div class="lado bien aparece">
+        <h3>Así se trabaja con Daily Logistics</h3>
+        <ul>
+          <li>El stock publicado en cada canal se actualiza solo con lo disponible</li>
+          <li>Cada movimiento queda en el kárdex con usuario, documento y ubicación</li>
+          <li>El viaje se ve en el mapa: origen, paradas, destino y prueba de entrega</li>
+          <li>Los pedidos entran solos y pasan directo a picking</li>
+          <li>El sistema despacha primero lo que vence primero (FEFO)</li>
+          <li>Tus clientes consultan su inventario y sus órdenes en el portal</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Plataforma ═══ -->
+<section id="plataforma">
+  <div class="envoltura">
+    <div class="aparece">
+      <span class="rotulo">La plataforma</span>
+      <h2>Seis módulos que comparten la misma información</h2>
+      <p class="intro">Un solo catálogo de productos, un solo inventario y una sola numeración de documentos. Lo que registra un módulo es lo que el siguiente usa, sin exportar ni importar nada.</p>
+    </div>
+    <div class="modulos">
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg></div>
+        <span class="sigla">WMS</span><h3>Almacén</h3>
+        <p>De la recepción al despacho, con cada unidad ubicada y trazada.</p>
+        <ul><li>Recepción contra orden de compra o ciega, con novedades</li><li>Ubicación dirigida, reabastecimiento de frentes de picking</li><li>Picking FEFO, staging y consolidación por destino</li><li>Lotes, vencimientos, estibas (LPN) y conteos cíclicos</li><li>Bodega virtual 3D y constructor de planos</li></ul>
+      </article>
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8"/><circle cx="5.5" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></svg></div>
+        <span class="sigla">TMS</span><h3>Transporte</h3>
+        <p>Flota propia o tercerizada, planeada, seguida y liquidada.</p>
+        <ul><li>Asignación de carga a vehículos con clic, lector o radiofrecuencia</li><li>Validación de capacidad en peso y volumen</li><li>Seguimiento en el mapa con eventos GPS y paradas</li><li>Prueba de entrega, OTIF y costos por viaje</li><li>Conductores, licencias y documentos de la flota</li></ul>
+      </article>
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></div>
+        <span class="sigla">CANALES</span><h3>Ventas en línea</h3>
+        <p>Tus marketplaces y tu tienda conectados al inventario real.</p>
+        <ul><li>Mercado Libre, Shopify, WooCommerce, VTEX y Rappi</li><li>Pedidos que pasan solos a picking cuando están pagados</li><li>Stock publicado según lo disponible en la bodega</li><li>La plataforma recibe la guía y el estado de la entrega</li><li>Importación por Excel o CSV y webhooks propios</li></ul>
+      </article>
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M2 9h20"/><path d="M7 22h10"/><path d="M12 18v4"/></svg></div>
+        <span class="sigla">POS</span><h3>Punto de venta</h3>
+        <p>La tienda o sala de ventas, descontando del mismo inventario.</p>
+        <ul><li>Factura con resolución DIAN y CUFE, lista para tu proveedor tecnológico</li><li>Turnos de caja con cuadre por medio de pago</li><li>Efectivo, tarjetas, Nequi, Daviplata, transferencia y QR</li><li>Devoluciones con nota crédito y reingreso al inventario</li><li>Reabastecimiento automático de la sala desde la bodega</li></ul>
+      </article>
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <span class="sigla">WFM</span><h3>Personal operativo</h3>
+        <p>Quién trabaja, dónde y cuánto produce cada turno.</p>
+        <ul><li>Marcación de jornada con carné en kiosco</li><li>Estaciones de trabajo y programación de turnos</li><li>Tareas pendientes de cada persona en su turno</li><li>Habilidades: montacargas, picking, recepción</li><li>Productividad por persona y por estación</li></ul>
+      </article>
+      <article class="modulo aparece">
+        <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <span class="sigla">PORTAL</span><h3>Portal de clientes</h3>
+        <p>Tus depositantes consultan su mercancía sin llamar ni escribir.</p>
+        <ul><li>Acceso propio para cada cliente que almacena contigo</li><li>Inventario en línea por producto, lote y vencimiento</li><li>Movimientos de entrada y salida por rango de fechas</li><li>Estado de sus órdenes y recepciones</li><li>Consulta de la facturación de servicios logísticos</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Flujo ═══ -->
+<section class="flujo" id="flujo">
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo" style="color:var(--cian)">Cómo funciona</span>
+      <h2>Del clic del comprador a la puerta de su casa</h2>
+      <p class="intro">Así viaja un pedido de marketplace por Daily Logistics, sin que nadie lo digite.</p>
+    </div>
+    <div class="pasos">
+      <div class="paso aparece"><div class="n">1</div><h4>Entra el pedido</h4><p>Llega de la plataforma por webhook o consulta y se registra una sola vez.</p><span class="donde">CANALES</span></div>
+      <div class="paso aparece"><div class="n">2</div><h4>Reserva y picking</h4><p>Se crea la orden, se reserva por FEFO y baja el stock publicado.</p><span class="donde">WMS</span></div>
+      <div class="paso aparece"><div class="n">3</div><h4>Staging</h4><p>Lo alistado pasa a la zona de despacho, aún reservado.</p><span class="donde">WMS</span></div>
+      <div class="paso aparece"><div class="n">4</div><h4>Consolidación</h4><p>Se agrupa por destino, se cierra con etiquetas y se elige el modo de despacho.</p><span class="donde">WMS</span></div>
+      <div class="paso aparece"><div class="n">5</div><h4>Cargue y viaje</h4><p>Se asigna al vehículo escaneando la etiqueta; nace el viaje con sus paradas.</p><span class="donde">TMS</span></div>
+      <div class="paso aparece"><div class="n">6</div><h4>Seguimiento</h4><p>El viaje se ve en el mapa y la plataforma recibe la guía.</p><span class="donde">TMS</span></div>
+      <div class="paso aparece"><div class="n">✓</div><h4>Entregado</h4><p>Prueba de entrega, OTIF, costo del viaje y aviso al cliente.</p><span class="donde">TODO</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Vitrina ═══ -->
+<section>
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo">Por dentro</span>
+      <h2>Ves tu operación como realmente está</h2>
+    </div>
+
+    <div class="vitrina aparece">
+      <div class="texto">
+        <span class="rotulo">Gemelo digital</span>
+        <h3>Diseña tu bodega y mírala llena, en 3D</h3>
+        <p>Dibuja el plano con su contorno real, muros, áreas y estanterías. Daily genera las ubicaciones y muestra la bodega en 3D con la ocupación de cada posición en tiempo real.</p>
+        <ul>
+          <li><b>1</b>Constructor con racks, góndolas, cantiléver y almacenamiento en piso</li>
+          <li><b>2</b>Contorno, muros y áreas de forma libre, con tramos curvos</li>
+          <li><b>3</b>Recorrido en primera persona y búsqueda de "¿dónde está?"</li>
+        </ul>
+      </div>
+      <div class="captura"><div class="cromo"><i></i><i></i><i></i></div><img src="/landing-img/constructor.jpg" alt="Constructor de bodega con plano, estanterías y áreas" loading="lazy" width="1195" height="763"></div>
+    </div>
+
+    <div class="vitrina invertida aparece">
+      <div class="texto">
+        <span class="rotulo">Transporte</span>
+        <h3>Cada viaje en el mapa, de la bodega a la dirección de compra</h3>
+        <p>El origen es tu bodega y el destino la dirección del comprador. Las paradas se ordenan en el mapa y el rastro GPS se dibuja a medida que el vehículo reporta.</p>
+        <ul>
+          <li><b>1</b>Flota propia, paqueteo urbano o nacional con transportadoras</li>
+          <li><b>2</b>Avance real medido sobre la ruta, no por reloj</li>
+          <li><b>3</b>La entrega actualiza despacho, pedido, canal y OTIF a la vez</li>
+        </ul>
+      </div>
+      <div class="captura"><div class="cromo"><i></i><i></i><i></i></div><img src="/landing-img/tracking.jpg" alt="Seguimiento de un viaje en el mapa con origen, paradas y destino" loading="lazy" width="1600" height="977"></div>
+    </div>
+
+    <div class="vitrina aparece">
+      <div class="texto">
+        <span class="rotulo">Ventas en línea</span>
+        <h3>Un tablero para todos tus canales</h3>
+        <p>Ves en una sola lista los pedidos de cada marketplace, en qué etapa va cada uno y cuáles tienen novedad (un producto sin mapear o sin stock) antes de que el cliente reclame.</p>
+        <ul>
+          <li><b>1</b>Inventario comprometido, en staging y con novedad, de un vistazo</li>
+          <li><b>2</b>Consolida y despacha desde la misma pantalla</li>
+          <li><b>3</b>La guía vuelve sola a la plataforma</li>
+        </ul>
+      </div>
+      <div class="captura"><div class="cromo"><i></i><i></i><i></i></div><img src="/landing-img/canales.jpg" alt="Tablero de pedidos en línea por etapa" loading="lazy" width="1600" height="880"></div>
+    </div>
+
+    <div class="vitrina invertida aparece">
+      <div class="texto">
+        <span class="rotulo">Inventario</span>
+        <h3>Existencias exactas por ubicación, lote y estiba</h3>
+        <p>Disponible, reservado y bloqueado por posición, con su lote y vencimiento. Exporta cualquier reporte a Excel, CSV o PDF.</p>
+        <ul>
+          <li><b>1</b>Kárdex con cada movimiento, usuario y documento</li>
+          <li><b>2</b>Reservas, bloqueos y conteos cíclicos con ajuste</li>
+          <li><b>3</b>Trazabilidad de un lote de la recepción al cliente final</li>
+        </ul>
+      </div>
+      <div class="captura"><div class="cromo"><i></i><i></i><i></i></div><img src="/landing-img/inventario.jpg" alt="Inventario en tiempo real por ubicación" loading="lazy" width="1600" height="880"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Integraciones ═══ -->
+<section class="integraciones" id="integraciones">
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo">Integraciones</span>
+      <h2>Vende donde quieras, despacha desde un solo lugar</h2>
+      <p class="intro">Cada conector trae los pedidos, publica el stock disponible y le devuelve a la plataforma el estado y la guía de cada envío.</p>
+    </div>
+    <div class="rejilla-int">
+      <div class="int aparece"><h4><i style="background:#FFE600;color:#2D3277">ML</i>Mercado Libre</h4><p>Pedidos, stock por publicación y envío marcado con su guía.</p><span class="tipo">Marketplace</span></div>
+      <div class="int aparece"><h4><i style="background:#5E8E3E">S</i>Shopify</h4><p>Órdenes pagadas, inventario por SKU y cumplimiento con número de seguimiento.</p><span class="tipo">Tienda en línea</span></div>
+      <div class="int aparece"><h4><i style="background:#7F54B3">W</i>WooCommerce</h4><p>Pedidos de tu tienda WordPress y existencias sincronizadas.</p><span class="tipo">Tienda en línea</span></div>
+      <div class="int aparece"><h4><i style="background:#F71963">V</i>VTEX</h4><p>Toma del pedido, inventario por bodega y estado del envío.</p><span class="tipo">Comercio empresarial</span></div>
+      <div class="int aparece"><h4><i style="background:#FF441F">R</i>Rappi</h4><p>Pedidos con consulta cada minuto y aceptación automática.</p><span class="tipo">Última milla</span></div>
+      <div class="int aparece"><h4><i style="background:#0B1120">{ }</i>API y webhooks</h4><p>Conecta tu tienda propia o tu ERP enviando pedidos a una URL segura.</p><span class="tipo">A la medida</span></div>
+      <div class="int aparece"><h4><i style="background:#15803D">XL</i>Excel y CSV</h4><p>Importa pedidos de cualquier canal desde un archivo, con validación previa.</p><span class="tipo">Sin integración</span></div>
+      <div class="int aparece"><h4><i style="background:#0891B2">DIAN</i>Facturación electrónica</h4><p>Factura y nota crédito con resolución, CUFE y CUDE, listas para enviar por tu proveedor tecnológico.</p><span class="tipo">Colombia</span></div>
+    </div>
+    <div class="sincroniza">
+      <div class="sinc aparece"><b>Pedidos → picking</b><span>Un pedido pagado se convierte en orden de salida y tarea de alistamiento sin intervención.</span></div>
+      <div class="sinc aparece"><b>Stock → publicaciones</b><span>Lo comprometido y lo que está en staging deja de ofrecerse en cada canal.</span></div>
+      <div class="sinc aparece"><b>Envío → plataforma</b><span>Al confirmar el cargue, el canal recibe la guía; al entregar, el estado final.</span></div>
+      <div class="sinc aparece"><b>Lectores y RF</b><span>Lectores de código de barras, pistolas de radiofrecuencia y celulares para escanear.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Para quién ═══ -->
+<section id="para-quien">
+  <div class="envoltura">
+    <div class="aparece">
+      <span class="rotulo">Para quién</span>
+      <h2>Hecho para negocios que mueven mercancía todos los días</h2>
+      <p class="intro">Activa solo los módulos que tu operación necesita y crece hacia los demás cuando haga falta.</p>
+    </div>
+    <div class="negocios">
+      <div class="negocio aparece"><span class="etiqueta">E-COMMERCE Y MARCAS</span><h3>Vendes en marketplaces y tienda propia</h3><p>Centraliza los pedidos de todos tus canales, evita vender lo que no tienes y despacha por paqueteo urbano o nacional con la guía de vuelta en la plataforma.</p><div class="usa"><span>Canales</span><span>WMS</span><span>TMS</span></div></div>
+      <div class="negocio aparece"><span class="etiqueta">OPERADORES 3PL</span><h3>Almacenas y despachas para terceros</h3><p>Inventario separado por depositante, portal para tus clientes, tarifas y liquidación de almacenamiento y manipulación.</p><div class="usa"><span>WMS multidepositante</span><span>Portal</span><span>Liquidación</span></div></div>
+      <div class="negocio aparece"><span class="etiqueta">DISTRIBUIDORES Y MAYORISTAS</span><h3>Abasteces tiendas, cadenas e instituciones</h3><p>Pedidos grandes, picking dirigido, consolidación por destino y flota propia con control de capacidad y OTIF.</p><div class="usa"><span>WMS</span><span>TMS</span><span>Personal</span></div></div>
+      <div class="negocio aparece"><span class="etiqueta">RETAIL CON BODEGA</span><h3>Tienda física y bodega en un mismo inventario</h3><p>La sala de ventas descuenta del mismo stock, se reabastece sola desde la bodega y factura electrónicamente en cada venta.</p><div class="usa"><span>POS</span><span>WMS</span><span>Canales</span></div></div>
+      <div class="negocio aparece"><span class="etiqueta">ALIMENTOS, FARMACIA Y CONSUMO</span><h3>Productos con lote y vencimiento</h3><p>FEFO automático, alertas de vencimiento, cuarentena y trazabilidad de cada lote hasta el cliente que lo recibió.</p><div class="usa"><span>Lotes</span><span>FEFO</span><span>Trazabilidad</span></div></div>
+      <div class="negocio aparece"><span class="etiqueta">EMPRESAS CON FLOTA</span><h3>Transporte propio o tercerizado</h3><p>Planea viajes, asigna vehículo y conductor, sigue la ruta y liquida costos por viaje, con o sin almacén.</p><div class="usa"><span>TMS</span><span>Flota</span><span>Costos</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Beneficios ═══ -->
+<section class="beneficios">
+  <div class="envoltura">
+    <div class="aparece">
+      <span class="rotulo" style="color:var(--cian)">Beneficios</span>
+      <h2>Menos errores, menos digitación, más entregas a tiempo</h2>
+      <p class="intro">Una sola plataforma conecta la bodega, el transporte, los canales de venta y la tienda física, para que cada área trabaje con la misma información y en tiempo real.</p>
+    </div>
+    <div class="cifras">
+      <div class="cifra aparece"><b>1</b><span>solo inventario para la bodega, la tienda física y todas las tiendas en línea</span></div>
+      <div class="cifra aparece"><b>6</b><span>frentes integrados: almacén, transporte, ventas en línea, punto de venta, personal y portal de clientes</span></div>
+      <div class="cifra aparece"><b>24/7</b><span>en la nube, desde el computador, la tableta o el celular de cada operario</span></div>
+      <div class="cifra aparece"><b>7</b><span>canales de venta listos para conectar: Mercado Libre, Shopify, WooCommerce, VTEX, Rappi, API y tienda física</span></div>
+    </div>
+    <div class="lista-ben">
+      <div class="ben aparece"><h4>Nunca vendas lo que no tienes</h4><p>El stock publicado se calcula con lo disponible; lo reservado sale de la oferta al instante.</p></div>
+      <div class="ben aparece"><h4>Inventario en el que se puede confiar</h4><p>Cada unidad tiene ubicación, lote y responsable; los conteos cíclicos cierran las diferencias.</p></div>
+      <div class="ben aparece"><h4>Menos digitación</h4><p>Pedidos, despachos, viajes y facturas se crean solos a partir de la operación.</p></div>
+      <div class="ben aparece"><h4>Entregas medidas</h4><p>OTIF por viaje y por cliente, con prueba de entrega y hora real.</p></div>
+      <div class="ben aparece"><h4>Personal productivo</h4><p>Cada operario ve sus tareas y el supervisor ve quién está en qué estación.</p></div>
+      <div class="ben aparece"><h4>Costos a la vista</h4><p>Costo por viaje, liquidación de transportadores y cuadre de caja por turno, todos los días.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Confianza ═══ -->
+<section>
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo">Seguridad y control</span>
+      <h2>Tus datos aislados, tus reglas en cada rol</h2>
+    </div>
+    <div class="confianza">
+      <div class="conf aparece"><h4>Datos aislados por empresa</h4><p>Cada cliente trabaja en su propio espacio de base de datos; nadie ve la información de otro.</p></div>
+      <div class="conf aparece"><h4>Roles y permisos</h4><p>Administrador, supervisor, operario, cajero, planeador y auditor, o los que definas.</p></div>
+      <div class="conf aparece"><h4>Trazabilidad completa</h4><p>Quién hizo qué, cuándo y con qué documento, en cada movimiento de inventario.</p></div>
+      <div class="conf aparece"><h4>En la nube, con respaldos</h4><p>Servicio administrado con copias de seguridad para recuperar la información ante cualquier imprevisto.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Planes ═══ -->
+<section class="planes-sec" id="planes">
+  <div class="envoltura">
+    <div class="centro aparece">
+      <span class="rotulo">Planes</span>
+      <h2>Pagas según el volumen que mueves</h2>
+      <p class="intro">Todos los planes incluyen la plataforma completa de los módulos que contrates. Cambia de plan cuando tu operación crezca.</p>
+    </div>
+    <div class="planes">
+      <div class="plan aparece">
+        <h3>Esencial</h3><p class="para">Para empezar a ordenar una bodega y vender en línea.</p>
+        <div class="volumen">5.000<small>documentos operativos al mes</small></div>
+        <ul><li>1 bodega</li><li>Hasta 2 canales de venta</li><li>WMS y Canales</li><li>12 meses de historia en línea</li><li>Soporte por correo</li></ul>
+        <a class="boton claro" href="#contacto" data-plan="Esencial">Cotizar plan</a>
+      </div>
+      <div class="plan destacado aparece">
+        <h3>Operación</h3><p class="para">Para empresas con flota, varias bodegas y punto de venta.</p>
+        <div class="volumen">25.000<small>documentos operativos al mes</small></div>
+        <ul><li>Hasta 5 bodegas</li><li>Todos los canales de venta</li><li>WMS, TMS, POS y Personal</li><li>24 meses de historia en línea</li><li>Soporte prioritario y acompañamiento</li></ul>
+        <a class="boton primario" href="#contacto" data-plan="Operación">Cotizar plan</a>
+      </div>
+      <div class="plan aparece">
+        <h3>Red</h3><p class="para">Para operadores 3PL y redes de distribución nacionales.</p>
+        <div class="volumen">100.000+<small>documentos operativos al mes</small></div>
+        <ul><li>Bodegas ilimitadas</li><li>Multidepositante y portal de clientes</li><li>Base de datos dedicada</li><li>Historia en línea a la medida</li><li>Gerente de cuenta</li></ul>
+        <a class="boton claro" href="#contacto" data-plan="Red">Hablar con ventas</a>
+      </div>
+    </div>
+    <p class="aparte">La facturación electrónica, la geocodificación de direcciones y el almacenamiento de fotos de entrega se cobran según uso.</p>
+  </div>
+</section>
+
+<!-- ═══ Preguntas ═══ -->
+<section id="preguntas">
+  <div class="envoltura">
+    <div class="centro aparece"><span class="rotulo">Preguntas frecuentes</span><h2>Lo que nos suelen preguntar</h2></div>
+    <div class="preguntas">
+      <details class="aparece"><summary>¿Qué es un "documento operativo"?</summary><p>Cada recepción, pedido, despacho, viaje, venta de punto de venta o pedido de canal cuenta como uno. Sus líneas y movimientos de inventario no se cuentan aparte.</p></details>
+      <details class="aparece"><summary>¿Tengo que contratar todos los módulos?</summary><p>No. Puedes empezar solo con el almacén o solo con el transporte y activar los demás cuando los necesites; la información ya registrada se aprovecha desde el primer día.</p></details>
+      <details class="aparece"><summary>¿Cómo se conectan mis tiendas en línea?</summary><p>Desde la configuración de canales autorizas tu cuenta de Mercado Libre, Shopify, WooCommerce, VTEX o Rappi. Para otras tiendas hay webhooks y la importación por Excel o CSV.</p></details>
+      <details class="aparece"><summary>¿Funciona con lectores de código de barras?</summary><p>Sí. Recepción, picking, conteos y cargue de vehículos aceptan lectores de código de barras, pistolas de radiofrecuencia y la cámara del celular.</p></details>
+      <details class="aparece"><summary>¿Necesito instalar algo?</summary><p>No. Daily Logistics funciona en el navegador, en computador, tableta o celular. Solo necesitas conexión a internet.</p></details>
+      <details class="aparece"><summary>¿Puedo migrar mis productos e inventario actuales?</summary><p>Sí. Los maestros de productos, clientes, proveedores y ubicaciones se cargan por archivo, y el inventario inicial se registra con su lote y ubicación.</p></details>
+      <details class="aparece"><summary>¿Cuánto tarda la puesta en marcha?</summary><p>Depende del número de bodegas y canales. Una operación con una bodega y un canal puede estar en producción en pocas semanas, incluida la capacitación del equipo.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Contacto ═══ -->
+<section class="final" id="contacto">
+  <div class="envoltura">
+    <span class="rotulo" style="color:var(--cian)">Agenda una demo</span>
+    <h2>Mira tu operación funcionando en Daily Logistics</h2>
+    <p class="intro">Cuéntanos qué mueves y por dónde vendes. Te mostramos la plataforma con un caso parecido al tuyo.</p>
+    <form class="formulario" id="formulario" novalidate>
+      <input name="nombre" placeholder="Nombre" required autocomplete="name">
+      <input name="empresa" placeholder="Empresa" required autocomplete="organization">
+      <input name="correo" type="email" placeholder="Correo" required autocomplete="email">
+      <input name="telefono" placeholder="Teléfono / WhatsApp" autocomplete="tel">
+      <select name="negocio" aria-label="Tipo de negocio">
+        <option value="">Tipo de negocio</option><option>E-commerce / marca</option><option>Operador 3PL</option><option>Distribuidor / mayorista</option>
+        <option>Retail con bodega</option><option>Alimentos / farmacia</option><option>Transporte</option><option>Otro</option>
+      </select>
+      <select name="plan" aria-label="Plan de interés">
+        <option value="">Plan de interés</option><option>Esencial</option><option>Operación</option><option>Red</option><option>Aún no sé</option>
+      </select>
+      <textarea name="mensaje" placeholder="¿Cuántas bodegas tienes y en qué canales vendes?"></textarea>
+      <button class="boton primario" type="submit">Solicitar demo</button>
+    </form>
+  </div>
+</section>
+
+<footer class="pie">
+  <div class="envoltura">
+    <a href="#inicio" class="logo"><img src="/favicon.svg" alt="" width="28" height="28"><span><b style="color:#fff">daily</b>logistics<i>.</i></span></a>
+    <nav aria-label="Pie"><a href="#plataforma">Plataforma</a><a href="#integraciones">Integraciones</a><a href="#planes">Planes</a><a href="/">Ingresar</a></nav>
+    <span id="legal">© Daily Logistics · La operación logística de cada día, en un solo lugar.</span>
+  </div>
+</footer>
+
+<script>
+  // Datos de contacto comercial: el formulario arma un correo a esta dirección.
+  const CONTACTO = { correo: 'comercial@dailylogistics.co' };
+
+  document.getElementById('legal').textContent = `© ${new Date().getFullYear()} Daily Logistics · La operación logística de cada día, en un solo lugar.`;
+
+  // Cabecera sólida al desplazarse
+  const cab = document.getElementById('cabecera');
+  const alDesplazar = () => cab.classList.toggle('solida', window.scrollY > 24);
+  alDesplazar(); window.addEventListener('scroll', alDesplazar, { passive: true });
+  document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => cab.classList.remove('abierto')));
+
+  // Aparición al entrar en pantalla
+  const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } }), { threshold: .12 });
+  document.querySelectorAll('.aparece').forEach(el => obs.observe(el));
+
+  // Los botones de plan preseleccionan el plan en el formulario
+  document.querySelectorAll('[data-plan]').forEach(b => b.addEventListener('click', () => {
+    document.querySelector('select[name=plan]').value = b.dataset.plan;
+  }));
+
+  // El formulario arma un correo con los datos (sin servidor de por medio)
+  document.getElementById('formulario').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const f = new FormData(ev.target);
+    if (!f.get('nombre') || !f.get('empresa') || !f.get('correo')) { alert('Escribe tu nombre, tu empresa y tu correo.'); return; }
+    const cuerpo = ['Nombre: ' + f.get('nombre'), 'Empresa: ' + f.get('empresa'), 'Correo: ' + f.get('correo'), 'Teléfono: ' + (f.get('telefono') || '-'),
+                    'Tipo de negocio: ' + (f.get('negocio') || '-'), 'Plan de interés: ' + (f.get('plan') || '-'), '', f.get('mensaje') || ''].join('\n');
+    location.href = `mailto:${CONTACTO.correo}?subject=${encodeURIComponent('Demo Daily Logistics · ' + f.get('empresa'))}&body=${encodeURIComponent(cuerpo)}`;
+  });
+
+  // Respeta "reducir movimiento": el video queda quieto en el primer cuadro
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.ventana video').forEach(v => { v.removeAttribute('autoplay'); v.pause() })
+  }
+</script>
+</body>
+</html>

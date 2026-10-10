@@ -371,6 +371,11 @@ export default function Bodega3D({ almacen, productoId, onAbrir, onEditar }: {
     controles.enableDamping = true; controles.dampingFactor = 0.08
     controles.maxPolarAngle = Math.PI * 0.495; controles.minDistance = 1.5; controles.maxDistance = Math.max(ancho, largo) * 2.2
     controles.screenSpacePanning = false
+    // Captura de recorridos en video (página comercial): solo con «?captura» en la
+    // URL se expone la escena para mover la cámara cuadro a cuadro desde fuera.
+    if (new URLSearchParams(window.location.search).has('captura')) {
+      (window as any).__bodega3d = { THREE, scene, camara, controles, renderer, ancho, largo, racks: d.racks }
+    }
     // Encuadre: la zona donde están las estanterías, no todo el edificio.
     const xs = d.racks.flatMap(r => [r.x - r.largo_m / 2, r.x + r.largo_m / 2]).map(x => x - ancho / 2)
     const zs = d.racks.flatMap(r => [r.z - 1.5, r.z + 1.5]).map(z => z - largo / 2)

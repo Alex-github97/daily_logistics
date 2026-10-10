@@ -52,6 +52,8 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         admin: path.resolve(__dirname, 'admin.html'),
+        // Página comercial del producto (estática): /landing/
+        landing: path.resolve(__dirname, 'landing/index.html'),
       },
     },
   },

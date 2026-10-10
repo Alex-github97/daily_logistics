@@ -1,0 +1,57 @@
+daily - correcciones
+
+
+Productos:
+
+	1. Se debe agregar una sub categoría de productos. Ejemplo, a hoy en día existe tecnología, pero no explica que tecnología es, si es un celular, un portátil, etc. Además esto debería tener una tercera categoría, ya que puede ser de una categoría y una subcategoría pero no apliquen para lo mismo, entonces se requiere una sub categoría la que hoy llamas Familia y una segunda sub categoría.
+
+	2. El SKU debe partir de ahí, las categorías deben tener una codificación numérica a medida que se van creando, y eso representaría los números iniciales del SKU.
+
+	3. Imagen del producto, Se debe permitir agregar una imagen del producto de referencia que permita identificar al usuario cual es el producto (en cualquiera de los módulos se debe de poder visualizar la imagen del producto en caso tal que se vaya a ubicar un producto), pero esto nos traerá un problema de memoria, ya que consumirá bastantes recursos, es posible que se pueda descomprimir la imagen en código, almacenar el código en una base de datos y cuando se muestre la imagen sea una librería quien procese el código y lo convierta en imagen para así ocupar menos memoria?. De ser posible procede con la mejor solución por favor.
+
+
+Entradas de Mercancía > Recepción de Mercancía
+
+	1. Existe una orden de compra inicial, pero no existe un paso previo que le permita digitar ítems a cotizar y enviar una solicitud de cotización a distintos proveedores. El flujo de trabajo sería el siguiente: El usuario necesita cotizar varios productos con varios proveedores, se diligencia un formulario que contenga los ítems a cotizar y también el listado de proveedores con los que se va a cotizar, es importante que por proveedor exista la posibilidad de que dentro de la misma solicitud de cotización se puedan enviar o no distintos productos seleccionados por la persona que cotiza, es decir, se colocan los productos y los proveedores a cotizar (de la lista de proveedores), luego mas abajo se deben desplegar unos recuadros por cual proveedor se cotizan cuales productos y luego un botón de exportar a pdf cada uno de los documentos de la solicitud de cotización por proveedor, y también la opción de enviar por correo por proveedor (este correo saldría desde un correo propio de la plataforma noreply@ etc (este correo de salida se debe configurar desde el modulo de administrador de la app)
+
+	2. Luego cuando los usuarios reciben las cotizaciones, se diligencian los precios por proveedor, (también dejaremos un botón de cargar cotización (esto posteriormente programaremos una IA que llene los campos sola), y que el usuario seleccione que productos va a solicitar a cual proveedor y esto viajar a la orden de compra (sería una orden de compra por cada proveedor seleccionado de la cotización), y ya en la orden de compra se asignan los productos seleccionados automaticamente y no se elimina la posibilidad de agregar productos de forma manual tal como lo deja hoy en día, y lo que quede en la orden de compra despues de emitida, viajaria a la recepción de forma habitual como se viene haciendo.
+
+	3. Debe existir una ubicación por defecto que se llame (Recepción), es la mercancía que se recibió y luego hay que distribuír en la bodega. Esto al ser mercancía que se debe distribuir para las distintas tareas, debe colocarse hacia donde se dirige por cada producto recibido (y se debe colocar la cantidad), si va a alguna estantería, si va a cross docking (debe crearse una bodega de cross) que reciba esto y que tambien conecte como el tms tal como lo demas que tenemos.
+
+
+
+Constructor de bodegas 3D y posiciones.
+
+	1. Es importante que el constructor permita escribir textos en el piso que se puedan ver en el plano 3d posteriormente para remarcar áreas, como muelles, compuertas, etc.
+
+	2. También es importante que permita crear áreas remarcadas así como las tienes en este momento pero que no está la opción donde uno pueda dibujar las líneas y colocarle el texto (creo que lo tienes en el código y no en el front)
+
+	3. Se debe también permitir en el constructor colocar el tipo de infraestructura que corresponde, si es una bodega (puede ser cedi, patio abierto, etc), o un buque naviero. (Esto servirá posteriormente para el modulo de "bascula" para el TMS ya que ahí existirá algo similar, donde se colocará en que posición del furgón, contenedor, etc, se colocará la mercancía y la aplicación mostrará si se permite y si es adecuado o no.
+
+		Esto debe funcionar de la siguiente forma (se selecciona la mercancía que se va a cargar en el vehículo > el sistema debe calcular técnicamente donde se debe colocar cada pallet, caja, etc y mostrarlo en el grafico 3D del vehículo y mostrar el peso y volumen de carga y el peso y volumen del vehículo y esto debe mostrar el % de ocupación tanto en peso como volumen e indicar si se debe o no movilizar el vehículo de esa forma). Esto debe funcionar en la sección de asignación de mercancía por vehículo.
+
+
+
+
+Modulo de analítica - Proyecciones - Indicadores.
+
+	1. Se debe crear un nuevo modulo dedicado a la analítica de los datos.
+	2. Este modulo debe tener la consolidación de informes ya existentes en los distintos módulos.
+	3. Este modulo debe tener una sección de analítica configurable de métricas tipo powerbi. donde uno seleccione la data de la que quiere extraer el dato, seleccionar el tipo de grafico, calcular alguna métrica con campos calculados (esto podría usar un lenguaje de calculo potente, que permita realizar métricas estadísticas avanzadas de ser necesario)
+	4. Ya que existe una orden previa que registra las cotizaciones, debe de almacenarse una data que registre dichas cotizaciones para analizar los precios que han cotizado los distintos proveedores por un producto.
+	5. Debe existir un modulo de planeación de la demanda (S&OP), donde funcionará con un modelo de xGBOOST muy muy avanzado. Esto debe predecir que producto se debe tener en que bodega, cuando y donde de la manera mas optima (debes en los documentos, en la carpeta de documentos dejarme las metodologías de calculo aplicadas para predecir esto), también se debe predecir la tipología de vehículos (propios y terceros y segregarlos) necesitada para cada bodega en que fecha para poder garantizar una distribución eficiente.
+	6. De acuerdo a la predicción de la demanda, el algoritmo debe decir que mercancía debe de estar posicionada de la forma mas sencilla para el picking, es decir, en las posiciones bajas y medias de las estanterías.
+	7. Sección Excelencia Operacional - En esta sección se debe seleccionar que métricas existentes y configuradas del modulo de analítica son medidas y evaluadas, y configurarles metas en periodos de tiempo configurables,
+		Este modulo de excelencia operacional debe contener una matriz (tabla) con todos los indicadores medidos en excelencia operacional y mostrar en el periodo de tiempo seleccionado y en la frecuencia de evaluación seleccionada (puede ser diaria, semanal o mensual, o bimensual, o trimestral, cuatrimestral, quintimestral, etc hasta anual), también debe permitir la colocación de los planes de acción en caso de incumplimiento, y el cargue de documentos Excel, Word, pdf y tener plantillas que permitan diligenciar estos planes de acción de forma sencilla, que contengan plantillas para análisis de causa raíz, 5 porques, etc (todo lo que aplique en black belt para la mejora continua)
+
+Modulo de Entrenamiento
+
+	1. Se debe crear un modulo de entrenamiento de la plataforma por usuario
+	2. Este modulo debe contener la documentación (guía de uso) de cada modulo y el flujo de trabajo correcto, buenas practicas etc.
+	3. El modulo debe contener además de la documentación de como usar el modulo de analítica, también debe contener la guía del lenguaje de calculo para los campos calculados.
+	4. También debe contener una sección de evaluación que evalúe el conocimiento de los usuarios y que los usuarios con los permisos adecuados puedan evaluar el conocimiento del personal en el software y procesos de la compañía.
+	5. El modulo también debe contener la posibilidad de almacenar videos de entrenamiento de otros procesos de la compañía y de configurar pruebas para la evaluación de estos módulos.
+
+
+
+
